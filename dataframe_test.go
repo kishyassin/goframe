@@ -319,3 +319,22 @@ func TestAdvancedIndexing(t *testing.T) {
 		t.Errorf("Expected 2 rows in Iloc result, got %d", ilocResult.Nrows())
 	}
 }
+
+func TestVisualization(t *testing.T) {
+	df := goframe.NewDataFrame()
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("x", []float64{1, 2, 3, 4, 5})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("y", []float64{2, 4, 6, 8, 10})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("z", []float64{5, 10, 15, 20, 25})))
+
+	// Test LinePlot
+	linePlotErr := df.LinePlot("x", "y", "line_plot_test.png")
+	if linePlotErr != nil {
+		t.Errorf("LinePlot failed: %v", linePlotErr)
+	}
+
+	// Test BarPlot
+	barPlotErr := df.BarPlot("z", "bar_plot_test.png")
+	if barPlotErr != nil {
+		t.Errorf("BarPlot failed: %v", barPlotErr)
+	}
+}
