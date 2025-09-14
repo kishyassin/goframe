@@ -73,7 +73,7 @@ func (df *DataFrame) Select(name string) (*Column[any], error) {
 
 // Row returns a row by index
 func (df *DataFrame) Row(index int) (map[string]any, error) {
-	if index < 0 {
+	if index < 0 || index >= df.Nrows() {
 		return nil, fmt.Errorf("index out of bounds")
 	}
 
@@ -81,7 +81,7 @@ func (df *DataFrame) Row(index int) (map[string]any, error) {
 	for name, col := range df.Columns {
 		value, err := col.At(index)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error accessing column '%s': %w", name, err)
 		}
 		row[name] = value
 	}
@@ -257,6 +257,81 @@ func (df *DataFrame) String() string {
 	return result.String()
 }
 
+// Head returns the first n rows of the DataFrame
+func (df *DataFrame) Head(n int) *DataFrame {
+	if n > df.Nrows() {
+		n = df.Nrows()
+	}
+
+	head := NewDataFrame()
+	for name, col := range df.Columns {
+		newCol := &Column[any]{
+			Name: name,
+			Data: col.Data[:n],
+		}
+		head.Columns[name] = newCol
+	}
+	return head
+}
+
+// Tail returns the last n rows of the DataFrame
+func (df *DataFrame) Tail(n int) *DataFrame {
+	totalRows := df.Nrows()
+	if n > totalRows {
+		n = totalRows
+	}
+
+	tail := NewDataFrame()
+	for name, col := range df.Columns {
+		newCol := &Column[any]{
+			Name: name,
+			Data: col.Data[totalRows-n:],
+		}
+		tail.Columns[name] = newCol
+	}
+	return tail
+}
+
+// AppendRow adds a new row to the DataFrame
+func (df *DataFrame) AppendRow(row map[string]any) error {
+	for name, value := range row {
+		col, exists := df.Columns[name]
+		if !exists {
+			return fmt.Errorf("column '%s' does not exist", name)
+		}
+		col.Data = append(col.Data, value)
+	}
+	return nil
+}
+
+// DropRow removes a row by index from the DataFrame
+func (df *DataFrame) DropRow(i int) error {
+	if i < 0 || i >= df.Nrows() {
+		return fmt.Errorf("index out of bounds")
+	}
+
+	for _, col := range df.Columns {
+		col.Data = append(col.Data[:i], col.Data[i+1:]...)
+	}
+	return nil
+}
+
+// RenameColumn renames a column in the DataFrame
+func (df *DataFrame) RenameColumn(oldName, newName string) error {
+	col, exists := df.Columns[oldName]
+	if !exists {
+		return fmt.Errorf("column '%s' does not exist", oldName)
+	}
+	if _, exists := df.Columns[newName]; exists {
+		return fmt.Errorf("column '%s' already exists", newName)
+	}
+
+	col.Name = newName
+	df.Columns[newName] = col
+	delete(df.Columns, oldName)
+	return nil
+}
+
 // Column represents a typed column in the DataFrame
 // T is the type of the column data (e.g., int, float64, string, bool)
 type Column[T any] struct {
@@ -284,4 +359,16 @@ func (c *Column[T]) At(index int) (T, error) {
 		return zero, fmt.Errorf("index out of bounds")
 	}
 	return c.Data[index], nil
+}
+
+// ConvertToAnyColumn converts a typed column to a generic column of type `any`
+func ConvertToAnyColumn[T any](col *Column[T]) *Column[any] {
+	genericData := make([]any, len(col.Data))
+	for i, v := range col.Data {
+		genericData[i] = v
+	}
+	return &Column[any]{
+		Name: col.Name,
+		Data: genericData,
+	}
 }
