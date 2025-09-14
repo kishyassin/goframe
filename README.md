@@ -14,6 +14,8 @@ goframe is a Go package inspired by Python's pandas, designed for data manipulat
 - **Row operations**: Access rows (`Row`), retrieve subsets (`Head`, `Tail`), append rows (`AppendRow`), and remove rows (`DropRow`).
 - **Column renaming**: Rename columns using the `RenameColumn` method.
 - **CSV export**: Save DataFrames to CSV files using `ToCSV` and `ToCSVWriter`.
+- **Time Series Support**: Add datetime indexing, resampling, and shifting for time series data.
+- **Visualization**: Generate line and bar plots directly from DataFrames.
 
 ## Installation
 
@@ -36,15 +38,17 @@ import (
 )
 
 func main() {
+	// Create a new DataFrame
 	df := goframe.NewDataFrame()
 
-	// Add columns
+	// Add columns to the DataFrame
 	nameCol := goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"})
 	df.AddColumn(nameCol)
 
 	ageCol := goframe.NewColumn("age", []int{25, 30, 35})
 	df.AddColumn(ageCol)
 
+	// Print the DataFrame
 	fmt.Println(df)
 }
 ```
@@ -144,6 +148,64 @@ if err != nil {
 }
 fmt.Println("DataFrame exported to output.csv")
 ```
+
+### Advanced Features
+
+#### Time Series
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/kishyassin/goframe"
+)
+
+func main() {
+	df := goframe.NewDataFrame()
+	df.AddColumn(goframe.NewColumn("date", []string{"2025-09-14", "2025-09-15", "2025-09-16"}))
+	df.AddColumn(goframe.NewColumn("value", []float64{10.5, 20.3, 30.7}))
+
+	// Resample data to daily frequency
+	resampled := df.Resample("date", "D")
+	fmt.Println("Resampled DataFrame:", resampled)
+}
+```
+
+#### Visualization
+
+```go
+package main
+
+import (
+	"github.com/kishyassin/goframe"
+)
+
+func main() {
+	df := goframe.NewDataFrame()
+	df.AddColumn(goframe.NewColumn("x", []int{1, 2, 3}))
+	df.AddColumn(goframe.NewColumn("y", []float64{2.5, 3.5, 4.5}))
+
+	// Generate a line plot
+	df.LinePlot("x", "y", "line_plot.png")
+}
+```
+
+### API Reference
+
+#### DataFrame Methods
+
+- `NewDataFrame()`: Create a new DataFrame.
+- `AddColumn(column *Column[any])`: Add a column to the DataFrame.
+- `Row(index int)`: Retrieve a row by index.
+- `Join(other *DataFrame, key string, joinType string)`: Perform join operations.
+- `Resample(column string, frequency string)`: Resample time series data.
+- `LinePlot(xCol, yCol, outputFile string)`: Generate a line plot.
+
+#### Column Methods
+
+- `NewColumn(name string, data []T)`: Create a new column.
+- `At(index int)`: Retrieve a value by index.
 
 ## Contributing
 
