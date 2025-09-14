@@ -2,6 +2,8 @@
 
 goframe is a Go package inspired by Python's pandas, designed for data manipulation and analysis. It provides a `DataFrame` structure and `Column` types for handling and processing structured data efficiently.
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/kishyassin/goframe.svg)](https://pkg.go.dev/github.com/kishyassin/goframe)
+
 ## Features
 
 - Typed columns with support for `int`, `float64`, `string`, and `bool`.
