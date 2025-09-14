@@ -286,3 +286,36 @@ func TestDataFrameJoin(t *testing.T) {
 		t.Errorf("Expected 4 rows in outer join, got %d", outerJoin.Nrows())
 	}
 }
+
+func TestAdvancedIndexing(t *testing.T) {
+	df := goframe.NewDataFrame()
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("index", []int{1, 2, 3, 4}))) // Add index column
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("id", []int{1, 2, 3, 4})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("value", []string{"A", "B", "C", "D"})))
+
+	// Test BooleanIndex
+	filtered := df.BooleanIndex(func(row map[string]any) bool {
+		return row["id"].(int) > 2
+	})
+	if filtered.Nrows() != 2 {
+		t.Errorf("Expected 2 rows after BooleanIndex, got %d", filtered.Nrows())
+	}
+
+	// Test Loc
+	locResult, err := df.Loc([]any{1, 3}, []string{"id", "value"})
+	if err != nil {
+		t.Errorf("Unexpected error in Loc: %v", err)
+	}
+	if locResult.Nrows() != 2 {
+		t.Errorf("Expected 2 rows in Loc result, got %d", locResult.Nrows())
+	}
+
+	// Test Iloc
+	ilocResult, err := df.Iloc([]int{0, 2}, []int{0, 1})
+	if err != nil {
+		t.Errorf("Unexpected error in Iloc: %v", err)
+	}
+	if ilocResult.Nrows() != 2 {
+		t.Errorf("Expected 2 rows in Iloc result, got %d", ilocResult.Nrows())
+	}
+}

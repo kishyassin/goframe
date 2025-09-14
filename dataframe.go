@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // DataFrame represents a collection of typed columns
@@ -468,8 +470,8 @@ func (df *DataFrame) Join(other *DataFrame, key string, joinType string) (*DataF
 			rowA, _ := df.Row(i)
 			matched := false
 			for j := 0; j < other.Nrows(); j++ {
-				rowB, _ := other.Row(j)
-				if rowA[key] == rowB[key] {
+				rowB, _ := other.Row(j) // Ensure rowB is defined
+				if reflect.DeepEqual(rowA[key], rowB[key]) {
 					mergedRow := mergeRows(rowA, rowB)
 					appendRowToDataFrame(result, mergedRow)
 					matchedRows[rowA[key]] = true
@@ -482,7 +484,7 @@ func (df *DataFrame) Join(other *DataFrame, key string, joinType string) (*DataF
 		}
 		for i := 0; i < other.Nrows(); i++ {
 			rowB, _ := other.Row(i)
-			if !matchedRows[rowB[key]] {
+			if _, exists := matchedRows[rowB[key]]; !exists {
 				appendRowToDataFrame(result, rowB)
 			}
 		}
@@ -552,5 +554,269 @@ func ConvertToAnyColumn[T any](col *Column[T]) *Column[any] {
 	return &Column[any]{
 		Name: col.Name,
 		Data: genericData,
+	}
+}
+
+// Advanced Indexing
+
+// MultiIndex represents hierarchical indexing for rows
+type MultiIndex struct {
+	Levels [][]any
+	Labels [][]int
+}
+
+// BooleanIndex filters rows based on a boolean condition
+func (df *DataFrame) BooleanIndex(condition func(row map[string]any) bool) *DataFrame {
+	return df.Filter(condition)
+}
+
+// Loc selects rows and columns by labels
+func (df *DataFrame) Loc(rowLabels []any, colLabels []string) (*DataFrame, error) {
+	result := NewDataFrame()
+
+	for _, col := range colLabels {
+		if _, exists := df.Columns[col]; !exists {
+			return nil, fmt.Errorf("column '%s' does not exist", col)
+		}
+		result.Columns[col] = &Column[any]{
+			Name: col,
+			Data: []any{},
+		}
+	}
+
+	indexCol, indexExists := df.Columns["index"]
+	if !indexExists {
+		return nil, fmt.Errorf("'index' column does not exist")
+	}
+
+	for i := 0; i < df.Nrows(); i++ {
+		row, _ := df.Row(i)
+		for _, label := range rowLabels {
+			if indexCol.Data[i] == label {
+				for _, col := range colLabels {
+					result.Columns[col].Data = append(result.Columns[col].Data, row[col])
+				}
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// Iloc selects rows and columns by integer positions
+func (df *DataFrame) Iloc(rowIndices []int, colIndices []int) (*DataFrame, error) {
+	result := NewDataFrame()
+	colNames := df.ColumnNames()
+
+	for _, colIdx := range colIndices {
+		if colIdx < 0 || colIdx >= len(colNames) {
+			return nil, fmt.Errorf("column index out of bounds")
+		}
+		colName := colNames[colIdx]
+		result.Columns[colName] = &Column[any]{
+			Name: colName,
+			Data: []any{},
+		}
+	}
+
+	for _, rowIdx := range rowIndices {
+		if rowIdx < 0 || rowIdx >= df.Nrows() {
+			return nil, fmt.Errorf("row index out of bounds")
+		}
+		row, _ := df.Row(rowIdx)
+		for _, colIdx := range colIndices {
+			colName := colNames[colIdx]
+			result.Columns[colName].Data = append(result.Columns[colName].Data, row[colName])
+		}
+	}
+
+	return result, nil
+}
+
+// Data Cleaning
+
+// FillNa fills missing values in the DataFrame with a specified value
+func (df *DataFrame) FillNa(value any) {
+	for _, col := range df.Columns {
+		for i, v := range col.Data {
+			if v == nil {
+				col.Data[i] = value
+			}
+		}
+	}
+}
+
+// DropNa removes rows with missing values from the DataFrame
+func (df *DataFrame) DropNa() {
+	rowsToKeep := []int{}
+
+	for i := 0; i < df.Nrows(); i++ {
+		row, _ := df.Row(i)
+		hasNa := false
+		for _, v := range row {
+			if v == nil {
+				hasNa = true
+				break
+			}
+		}
+		if !hasNa {
+			rowsToKeep = append(rowsToKeep, i)
+		}
+	}
+
+	for _, col := range df.Columns {
+		newData := []any{}
+		for _, idx := range rowsToKeep {
+			newData = append(newData, col.Data[idx])
+		}
+		col.Data = newData
+	}
+}
+
+// Astype converts the data type of a column
+func (df *DataFrame) Astype(columnName string, targetType string) error {
+	col, exists := df.Columns[columnName]
+	if !exists {
+		return fmt.Errorf("column '%s' does not exist", columnName)
+	}
+
+	newData := make([]any, len(col.Data))
+	for i, v := range col.Data {
+		switch targetType {
+		case "int":
+			if floatVal, ok := v.(float64); ok {
+				newData[i] = int(floatVal)
+			} else {
+				return fmt.Errorf("cannot convert value '%v' to int", v)
+			}
+		case "float64":
+			if intVal, ok := v.(int); ok {
+				newData[i] = float64(intVal)
+			} else {
+				return fmt.Errorf("cannot convert value '%v' to float64", v)
+			}
+		case "string":
+			newData[i] = fmt.Sprintf("%v", v)
+		default:
+			return fmt.Errorf("unsupported target type '%s'", targetType)
+		}
+	}
+
+	col.Data = newData
+	return nil
+}
+
+// Time Series Support
+
+// AddDatetimeIndex adds a datetime index to the DataFrame
+func (df *DataFrame) AddDatetimeIndex(columnName string, format string) error {
+	col, exists := df.Columns[columnName]
+	if !exists {
+		return fmt.Errorf("column '%s' does not exist", columnName)
+	}
+
+	newData := make([]any, len(col.Data))
+	for i, v := range col.Data {
+		strVal, ok := v.(string)
+		if !ok {
+			return fmt.Errorf("value '%v' in column '%s' is not a string", v, columnName)
+		}
+		datetime, err := time.Parse(format, strVal)
+		if err != nil {
+			return fmt.Errorf("error parsing datetime '%s': %v", strVal, err)
+		}
+		newData[i] = datetime
+	}
+
+	col.Data = newData
+	return nil
+}
+
+// Resample aggregates data based on a given time frequency
+func (df *DataFrame) Resample(datetimeColumn string, freq string, aggFunc func([]any) any) (*DataFrame, error) {
+	if _, exists := df.Columns[datetimeColumn]; !exists {
+		return nil, fmt.Errorf("datetime column '%s' does not exist", datetimeColumn)
+	}
+
+	resampled := NewDataFrame()
+	resampled.Columns[datetimeColumn] = &Column[any]{
+		Name: datetimeColumn,
+		Data: []any{},
+	}
+
+	for name := range df.Columns {
+		if name != datetimeColumn {
+			resampled.Columns[name] = &Column[any]{
+				Name: name,
+				Data: []any{},
+			}
+		}
+	}
+
+	// Group by frequency and apply aggregation
+	grouped := make(map[time.Time]map[string][]any)
+	for i := 0; i < df.Nrows(); i++ {
+		row, _ := df.Row(i)
+		datetime := row[datetimeColumn].(time.Time)
+		bucket := truncateToFrequency(datetime, freq)
+		if _, exists := grouped[bucket]; !exists {
+			grouped[bucket] = make(map[string][]any)
+		}
+		for name, value := range row {
+			if name != datetimeColumn {
+				grouped[bucket][name] = append(grouped[bucket][name], value)
+			}
+		}
+	}
+
+	// Aggregate and populate the resampled DataFrame
+	for bucket, data := range grouped {
+		resampled.Columns[datetimeColumn].Data = append(resampled.Columns[datetimeColumn].Data, bucket)
+		for name, values := range data {
+			resampled.Columns[name].Data = append(resampled.Columns[name].Data, aggFunc(values))
+		}
+	}
+
+	return resampled, nil
+}
+
+// Shift shifts the data in the DataFrame by a given number of periods
+func (df *DataFrame) Shift(periods int) *DataFrame {
+	shifted := NewDataFrame()
+	for name, col := range df.Columns {
+		newData := make([]any, len(col.Data))
+		for i := range col.Data {
+			newIdx := i - periods
+			if newIdx >= 0 && newIdx < len(col.Data) {
+				newData[i] = col.Data[newIdx]
+			} else {
+				newData[i] = nil
+			}
+		}
+		shifted.Columns[name] = &Column[any]{
+			Name: name,
+			Data: newData,
+		}
+	}
+	return shifted
+}
+
+// truncateToFrequency truncates a time to the specified frequency
+func truncateToFrequency(t time.Time, freq string) time.Time {
+	switch freq {
+	case "Y":
+		return time.Date(t.Year(), 1, 1, 0, 0, 0, 0, t.Location())
+	case "M":
+		return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
+	case "D":
+		return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+	case "H":
+		return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
+	case "T":
+		return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), 0, 0, t.Location())
+	case "S":
+		return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), 0, t.Location())
+	default:
+		return t
 	}
 }
