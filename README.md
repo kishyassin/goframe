@@ -10,6 +10,7 @@ goframe is a Go package inspired by Python's pandas, designed for data manipulat
 - DataFrame operations such as adding/removing columns, filtering rows, and selecting subsets.
 - Auto-detection of column types during CSV import.
 - Statistical aggregations like `Mean`, `Sum`, `Min`, and `Max`.
+- **Join operations**: Perform `inner`, `left`, `right`, and `outer` joins between DataFrames.
 
 ## Installation
 
@@ -57,6 +58,35 @@ if err != nil {
 	log.Fatal(err)
 }
 fmt.Println(df)
+```
+
+### Joining DataFrames
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/kishyassin/goframe"
+)
+
+func main() {
+	df1 := goframe.NewDataFrame()
+	df1.AddColumn(goframe.NewColumn("id", []int{1, 2, 3}))
+	df1.AddColumn(goframe.NewColumn("value1", []string{"A", "B", "C"}))
+
+	df2 := goframe.NewDataFrame()
+	df2.AddColumn(goframe.NewColumn("id", []int{2, 3, 4}))
+	df2.AddColumn(goframe.NewColumn("value2", []string{"X", "Y", "Z"}))
+
+	// Perform an inner join
+	joined, err := df1.Join(df2, "id", "inner")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(joined)
+}
 ```
 
 ## Contributing

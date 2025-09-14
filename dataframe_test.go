@@ -186,57 +186,103 @@ func TestDataFrameRowOperations(t *testing.T) {
 }
 
 func TestDataFrameAggregations(t *testing.T) {
-    df := goframe.NewDataFrame()
+	df := goframe.NewDataFrame()
 
-    // Add columns
-    df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("col1", []int{1, 2, 3, 4})))
-    df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("col2", []float64{1.5, 2.5, 3.5, 4.5})))
+	// Add columns
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("col1", []int{1, 2, 3, 4})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("col2", []float64{1.5, 2.5, 3.5, 4.5})))
 
-    // Test Mean
-    means, err := df.Mean()
-    if err != nil {
-        t.Errorf("Unexpected error calculating mean: %v", err)
-    }
-    if means["col1"] != 2.5 {
-        t.Errorf("Expected mean of col1 to be 2.5, got %v", means["col1"])
-    }
-    if means["col2"] != 3.0 {
-        t.Errorf("Expected mean of col2 to be 3.0, got %v", means["col2"])
-    }
+	// Test Mean
+	means, err := df.Mean()
+	if err != nil {
+		t.Errorf("Unexpected error calculating mean: %v", err)
+	}
+	if means["col1"] != 2.5 {
+		t.Errorf("Expected mean of col1 to be 2.5, got %v", means["col1"])
+	}
+	if means["col2"] != 3.0 {
+		t.Errorf("Expected mean of col2 to be 3.0, got %v", means["col2"])
+	}
 
-    // Test Sum
-    sums, err := df.Sum()
-    if err != nil {
-        t.Errorf("Unexpected error calculating sum: %v", err)
-    }
-    if sums["col1"] != 10 {
-        t.Errorf("Expected sum of col1 to be 10, got %v", sums["col1"])
-    }
-    if sums["col2"] != 12.0 {
-        t.Errorf("Expected sum of col2 to be 12.0, got %v", sums["col2"])
-    }
+	// Test Sum
+	sums, err := df.Sum()
+	if err != nil {
+		t.Errorf("Unexpected error calculating sum: %v", err)
+	}
+	if sums["col1"] != 10 {
+		t.Errorf("Expected sum of col1 to be 10, got %v", sums["col1"])
+	}
+	if sums["col2"] != 12.0 {
+		t.Errorf("Expected sum of col2 to be 12.0, got %v", sums["col2"])
+	}
 
-    // Test Min
-    mins, err := df.Min()
-    if err != nil {
-        t.Errorf("Unexpected error calculating min: %v", err)
-    }
-    if mins["col1"] != 1 {
-        t.Errorf("Expected min of col1 to be 1, got %v", mins["col1"])
-    }
-    if mins["col2"] != 1.5 {
-        t.Errorf("Expected min of col2 to be 1.5, got %v", mins["col2"])
-    }
+	// Test Min
+	mins, err := df.Min()
+	if err != nil {
+		t.Errorf("Unexpected error calculating min: %v", err)
+	}
+	if mins["col1"] != 1 {
+		t.Errorf("Expected min of col1 to be 1, got %v", mins["col1"])
+	}
+	if mins["col2"] != 1.5 {
+		t.Errorf("Expected min of col2 to be 1.5, got %v", mins["col2"])
+	}
 
-    // Test Max
-    maxs, err := df.Max()
-    if err != nil {
-        t.Errorf("Unexpected error calculating max: %v", err)
-    }
-    if maxs["col1"] != 4 {
-        t.Errorf("Expected max of col1 to be 4, got %v", maxs["col1"])
-    }
-    if maxs["col2"] != 4.5 {
-        t.Errorf("Expected max of col2 to be 4.5, got %v", maxs["col2"])
-    }
+	// Test Max
+	maxs, err := df.Max()
+	if err != nil {
+		t.Errorf("Unexpected error calculating max: %v", err)
+	}
+	if maxs["col1"] != 4 {
+		t.Errorf("Expected max of col1 to be 4, got %v", maxs["col1"])
+	}
+	if maxs["col2"] != 4.5 {
+		t.Errorf("Expected max of col2 to be 4.5, got %v", maxs["col2"])
+	}
+}
+
+func TestDataFrameJoin(t *testing.T) {
+	df1 := goframe.NewDataFrame()
+	df1.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("id", []int{1, 2, 3})))
+	df1.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("value1", []string{"A", "B", "C"})))
+
+	df2 := goframe.NewDataFrame()
+	df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("id", []int{2, 3, 4})))
+	df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("value2", []string{"X", "Y", "Z"})))
+
+	// Test inner join
+	innerJoin, err := df1.Join(df2, "id", "inner")
+	if err != nil {
+		t.Errorf("Unexpected error during inner join: %v", err)
+	}
+	if innerJoin.Nrows() != 2 {
+		t.Errorf("Expected 2 rows in inner join, got %d", innerJoin.Nrows())
+	}
+
+	// Test left join
+	leftJoin, err := df1.Join(df2, "id", "left")
+	if err != nil {
+		t.Errorf("Unexpected error during left join: %v", err)
+	}
+	if leftJoin.Nrows() != 3 {
+		t.Errorf("Expected 3 rows in left join, got %d", leftJoin.Nrows())
+	}
+
+	// Test right join
+	rightJoin, err := df1.Join(df2, "id", "right")
+	if err != nil {
+		t.Errorf("Unexpected error during right join: %v", err)
+	}
+	if rightJoin.Nrows() != 3 {
+		t.Errorf("Expected 3 rows in right join, got %d", rightJoin.Nrows())
+	}
+
+	// Test outer join
+	outerJoin, err := df1.Join(df2, "id", "outer")
+	if err != nil {
+		t.Errorf("Unexpected error during outer join: %v", err)
+	}
+	if outerJoin.Nrows() != 4 {
+		t.Errorf("Expected 4 rows in outer join, got %d", outerJoin.Nrows())
+	}
 }

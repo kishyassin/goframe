@@ -390,6 +390,130 @@ func (df *DataFrame) Max() (map[string]float64, error) {
 	return results, nil
 }
 
+// Join combines two DataFrames based on a key column and join type (inner, left, right, outer).
+func (df *DataFrame) Join(other *DataFrame, key string, joinType string) (*DataFrame, error) {
+	if _, exists := df.Columns[key]; !exists {
+		return nil, fmt.Errorf("key column '%s' does not exist in the first DataFrame", key)
+	}
+	if _, exists := other.Columns[key]; !exists {
+		return nil, fmt.Errorf("key column '%s' does not exist in the second DataFrame", key)
+	}
+
+	result := NewDataFrame()
+
+	// Add columns from both DataFrames to the result
+	for name := range df.Columns {
+		result.Columns[name] = &Column[any]{
+			Name: name,
+			Data: []any{},
+		}
+	}
+	for name := range other.Columns {
+		if _, exists := result.Columns[name]; !exists {
+			result.Columns[name] = &Column[any]{
+				Name: name,
+				Data: []any{},
+			}
+		}
+	}
+
+	// Perform the join based on the join type
+	switch joinType {
+	case "inner":
+		for i := 0; i < df.Nrows(); i++ {
+			rowA, _ := df.Row(i)
+			for j := 0; j < other.Nrows(); j++ {
+				rowB, _ := other.Row(j)
+				if rowA[key] == rowB[key] {
+					mergedRow := mergeRows(rowA, rowB)
+					appendRowToDataFrame(result, mergedRow)
+				}
+			}
+		}
+	case "left":
+		for i := 0; i < df.Nrows(); i++ {
+			rowA, _ := df.Row(i)
+			matched := false
+			for j := 0; j < other.Nrows(); j++ {
+				rowB, _ := other.Row(j)
+				if rowA[key] == rowB[key] {
+					mergedRow := mergeRows(rowA, rowB)
+					appendRowToDataFrame(result, mergedRow)
+					matched = true
+				}
+			}
+			if !matched {
+				appendRowToDataFrame(result, rowA)
+			}
+		}
+	case "right":
+		for i := 0; i < other.Nrows(); i++ {
+			rowB, _ := other.Row(i)
+			matched := false
+			for j := 0; j < df.Nrows(); j++ {
+				rowA, _ := df.Row(j)
+				if rowB[key] == rowA[key] {
+					mergedRow := mergeRows(rowA, rowB)
+					appendRowToDataFrame(result, mergedRow)
+					matched = true
+				}
+			}
+			if !matched {
+				appendRowToDataFrame(result, rowB)
+			}
+		}
+	case "outer":
+		matchedRows := make(map[any]bool)
+		for i := 0; i < df.Nrows(); i++ {
+			rowA, _ := df.Row(i)
+			matched := false
+			for j := 0; j < other.Nrows(); j++ {
+				rowB, _ := other.Row(j)
+				if rowA[key] == rowB[key] {
+					mergedRow := mergeRows(rowA, rowB)
+					appendRowToDataFrame(result, mergedRow)
+					matchedRows[rowA[key]] = true
+					matched = true
+				}
+			}
+			if !matched {
+				appendRowToDataFrame(result, rowA)
+			}
+		}
+		for i := 0; i < other.Nrows(); i++ {
+			rowB, _ := other.Row(i)
+			if !matchedRows[rowB[key]] {
+				appendRowToDataFrame(result, rowB)
+			}
+		}
+	default:
+		return nil, fmt.Errorf("unsupported join type: %s", joinType)
+	}
+
+	return result, nil
+}
+
+// mergeRows merges two rows into one
+func mergeRows(rowA, rowB map[string]any) map[string]any {
+	merged := make(map[string]any)
+	for k, v := range rowA {
+		merged[k] = v
+	}
+	for k, v := range rowB {
+		if _, exists := merged[k]; !exists {
+			merged[k] = v
+		}
+	}
+	return merged
+}
+
+// appendRowToDataFrame appends a row to a DataFrame
+func appendRowToDataFrame(df *DataFrame, row map[string]any) {
+	for name, value := range row {
+		df.Columns[name].Data = append(df.Columns[name].Data, value)
+	}
+}
+
 // Column represents a typed column in the DataFrame
 // T is the type of the column data (e.g., int, float64, string, bool)
 type Column[T any] struct {
