@@ -9,43 +9,43 @@ import (
 	"strings"
 )
 
-// DataFrame represents a tabular data structure with named columns
+// DataFrame represents a collection of typed columns
 type DataFrame struct {
-	Columns []*Series
-	Index   []interface{}
+	Columns map[string]*Column[any] // Map column name to generic Column
 }
 
 // NewDataFrame creates a new empty DataFrame
 func NewDataFrame() *DataFrame {
 	return &DataFrame{
-		Columns: make([]*Series, 0),
-		Index:   make([]interface{}, 0),
+		Columns: make(map[string]*Column[any]),
 	}
 }
 
-// AddColumn adds a new column (Series) to the DataFrame
-func (df *DataFrame) AddColumn(series *Series) error {
-	if len(df.Columns) > 0 && series.Len() != df.Nrows() {
-		return fmt.Errorf("series length %d does not match DataFrame length %d", series.Len(), df.Nrows())
+// AddColumn adds a new column to the DataFrame
+func (df *DataFrame) AddColumn(col *Column[any]) error {
+	if _, exists := df.Columns[col.Name]; exists {
+		return fmt.Errorf("column '%s' already exists", col.Name)
 	}
-	df.Columns = append(df.Columns, series)
+	df.Columns[col.Name] = col
+	return nil
+}
 
-	// Initialize index if this is the first column
-	if len(df.Index) == 0 {
-		for i := 0; i < series.Len(); i++ {
-			df.Index = append(df.Index, i)
-		}
+// DropColumn removes a column from the DataFrame
+func (df *DataFrame) DropColumn(name string) error {
+	if _, exists := df.Columns[name]; !exists {
+		return fmt.Errorf("column '%s' does not exist", name)
 	}
 
+	delete(df.Columns, name)
 	return nil
 }
 
 // Nrows returns the number of rows in the DataFrame
 func (df *DataFrame) Nrows() int {
-	if len(df.Columns) == 0 {
-		return 0
+	for _, col := range df.Columns {
+		return col.Len() // Return the length of the first column
 	}
-	return df.Columns[0].Len()
+	return 0 // Return 0 if there are no columns
 }
 
 // Ncols returns the number of columns in the DataFrame
@@ -53,51 +53,67 @@ func (df *DataFrame) Ncols() int {
 	return len(df.Columns)
 }
 
-// ColumnNames returns the names of all columns
+// ColumnNames returns the names of all columns in the DataFrame
 func (df *DataFrame) ColumnNames() []string {
-	names := make([]string, len(df.Columns))
-	for i, col := range df.Columns {
-		names[i] = col.Name
+	names := make([]string, 0, len(df.Columns))
+	for name := range df.Columns {
+		names = append(names, name)
 	}
 	return names
 }
 
-// Select returns a new DataFrame with only the specified columns
-func (df *DataFrame) Select(columnName string) (*Series, error) {
-	for _, col := range df.Columns {
-		if col.Name == columnName {
-			return col, nil
-		}
+// Select returns a column by name
+func (df *DataFrame) Select(name string) (*Column[any], error) {
+	col, exists := df.Columns[name]
+	if !exists {
+		return nil, fmt.Errorf("column '%s' does not exist", name)
 	}
-	return nil, fmt.Errorf("column '%s' not found", columnName)
+	return col, nil
+}
+
+// Row returns a row by index
+func (df *DataFrame) Row(index int) (map[string]any, error) {
+	if index < 0 {
+		return nil, fmt.Errorf("index out of bounds")
+	}
+
+	row := make(map[string]any)
+	for name, col := range df.Columns {
+		value, err := col.At(index)
+		if err != nil {
+			return nil, err
+		}
+		row[name] = value
+	}
+	return row, nil
 }
 
 // Filter returns a new DataFrame with rows that satisfy the given condition
-func (df *DataFrame) Filter(condition func(row []interface{}) bool) *DataFrame {
-	result := NewDataFrame()
+func (df *DataFrame) Filter(condition func(row map[string]any) bool) *DataFrame {
+	filtered := NewDataFrame()
 
-	// Create new columns with the same names
-	for _, col := range df.Columns {
-		newSeries := NewSeries(col.Name, []interface{}{})
-		result.Columns = append(result.Columns, newSeries)
+	// Initialize new columns
+	for name := range df.Columns {
+		filtered.Columns[name] = &Column[any]{
+			Name: name,
+			Data: []any{},
+		}
 	}
 
-	// Apply filter condition
+	// Iterate through rows and apply the condition
 	for i := 0; i < df.Nrows(); i++ {
-		row := make([]interface{}, df.Ncols())
-		for j, col := range df.Columns {
-			row[j] = col.At(i)
+		row, err := df.Row(i)
+		if err != nil {
+			continue
 		}
-
 		if condition(row) {
-			for j, col := range df.Columns {
-				result.Columns[j].Data = append(result.Columns[j].Data, col.At(i))
+			for name, value := range row {
+				filtered.Columns[name].Data = append(filtered.Columns[name].Data, value)
 			}
-			result.Index = append(result.Index, df.Index[i])
 		}
 	}
 
-	return result
+	return filtered
 }
 
 // FromCSV creates a DataFrame from a CSV file
@@ -124,12 +140,13 @@ func FromCSVReader(reader io.Reader) (*DataFrame, error) {
 	// Initialize DataFrame with columns
 	df := NewDataFrame()
 	for _, colName := range header {
-		series := NewSeries(colName, []interface{}{})
-		df.Columns = append(df.Columns, series)
+		df.Columns[colName] = &Column[any]{
+			Name: colName,
+			Data: []any{},
+		}
 	}
 
 	// Read data rows
-	rowIndex := 0
 	for {
 		record, err := csvReader.Read()
 		if err == io.EOF {
@@ -140,22 +157,18 @@ func FromCSVReader(reader io.Reader) (*DataFrame, error) {
 		}
 
 		if len(record) != len(header) {
-			return nil, fmt.Errorf("row %d has %d columns, expected %d", rowIndex, len(record), len(header))
+			return nil, fmt.Errorf("row has %d columns, expected %d", len(record), len(header))
 		}
 
 		// Add data to each column, trying to parse as number if possible
 		for i, value := range record {
-			// Try to parse as float64 first
+			col := df.Columns[header[i]]
 			if floatVal, err := strconv.ParseFloat(strings.TrimSpace(value), 64); err == nil {
-				df.Columns[i].Data = append(df.Columns[i].Data, floatVal)
+				col.Data = append(col.Data, floatVal)
 			} else {
-				// Keep as string if parsing fails
-				df.Columns[i].Data = append(df.Columns[i].Data, strings.TrimSpace(value))
+				col.Data = append(col.Data, strings.TrimSpace(value))
 			}
 		}
-
-		df.Index = append(df.Index, rowIndex)
-		rowIndex++
 	}
 
 	return df, nil
@@ -183,16 +196,18 @@ func (df *DataFrame) ToCSVWriter(writer io.Writer) error {
 		return fmt.Errorf("error writing header: %w", err)
 	}
 
-	// Write data rows
+	// Write rows
 	for i := 0; i < df.Nrows(); i++ {
-		row := make([]string, df.Ncols())
-		for j, col := range df.Columns {
-			value := col.At(i)
-			row[j] = fmt.Sprintf("%v", value)
+		row := make([]string, len(header))
+		for idx, colName := range header {
+			value, err := df.Columns[colName].At(i)
+			if err != nil {
+				return fmt.Errorf("error accessing value: %w", err)
+			}
+			row[idx] = fmt.Sprintf("%v", value)
 		}
-
 		if err := csvWriter.Write(row); err != nil {
-			return fmt.Errorf("error writing row %d: %w", i, err)
+			return fmt.Errorf("error writing row: %w", err)
 		}
 	}
 
@@ -211,12 +226,8 @@ func (df *DataFrame) String() string {
 	result.WriteString(fmt.Sprintf("DataFrame (%d rows x %d columns)\n", df.Nrows(), df.Ncols()))
 
 	// Column names
-	for i, name := range df.ColumnNames() {
-		if i > 0 {
-			result.WriteString("\t")
-		}
-		result.WriteString(name)
-	}
+	header := df.ColumnNames()
+	result.WriteString(strings.Join(header, "\t"))
 	result.WriteString("\n")
 
 	// First few rows (max 10)
@@ -226,12 +237,16 @@ func (df *DataFrame) String() string {
 	}
 
 	for i := 0; i < maxRows; i++ {
-		for j, col := range df.Columns {
-			if j > 0 {
-				result.WriteString("\t")
+		row := make([]string, len(header))
+		for idx, colName := range header {
+			value, err := df.Columns[colName].At(i)
+			if err != nil {
+				row[idx] = "<error>"
+			} else {
+				row[idx] = fmt.Sprintf("%v", value)
 			}
-			result.WriteString(fmt.Sprintf("%v", col.At(i)))
 		}
+		result.WriteString(strings.Join(row, "\t"))
 		result.WriteString("\n")
 	}
 
@@ -240,4 +255,33 @@ func (df *DataFrame) String() string {
 	}
 
 	return result.String()
+}
+
+// Column represents a typed column in the DataFrame
+// T is the type of the column data (e.g., int, float64, string, bool)
+type Column[T any] struct {
+	Name string
+	Data []T
+}
+
+// NewColumn creates a new typed column
+func NewColumn[T any](name string, data []T) *Column[T] {
+	return &Column[T]{
+		Name: name,
+		Data: data,
+	}
+}
+
+// Len returns the length of the column
+func (c *Column[T]) Len() int {
+	return len(c.Data)
+}
+
+// At returns the value at the given index
+func (c *Column[T]) At(index int) (T, error) {
+	if index < 0 || index >= len(c.Data) {
+		var zero T
+		return zero, fmt.Errorf("index out of bounds")
+	}
+	return c.Data[index], nil
 }
