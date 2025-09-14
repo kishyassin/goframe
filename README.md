@@ -11,6 +11,9 @@ goframe is a Go package inspired by Python's pandas, designed for data manipulat
 - Auto-detection of column types during CSV import.
 - Statistical aggregations like `Mean`, `Sum`, `Min`, and `Max`.
 - **Join operations**: Perform `inner`, `left`, `right`, and `outer` joins between DataFrames.
+- **Row operations**: Access rows (`Row`), retrieve subsets (`Head`, `Tail`), append rows (`AppendRow`), and remove rows (`DropRow`).
+- **Column renaming**: Rename columns using the `RenameColumn` method.
+- **CSV export**: Save DataFrames to CSV files using `ToCSV` and `ToCSVWriter`.
 
 ## Installation
 
@@ -87,6 +90,59 @@ func main() {
 
 	fmt.Println(joined)
 }
+```
+
+### Row Operations
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/kishyassin/goframe"
+)
+
+func main() {
+	df := goframe.NewDataFrame()
+	df.AddColumn(goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"}))
+	df.AddColumn(goframe.NewColumn("age", []int{25, 30, 35}))
+
+	// Access a row
+	row, _ := df.Row(1)
+	fmt.Println("Row 1:", row)
+
+	// Get the first two rows
+	head := df.Head(2)
+	fmt.Println("Head:", head)
+
+	// Append a new row
+	df.AppendRow(map[string]any{"name": "Diana", "age": 40})
+	fmt.Println("After appending a row:", df)
+
+	// Drop a row
+	df.DropRow(1)
+	fmt.Println("After dropping a row:", df)
+}
+```
+
+### Renaming Columns
+
+```go
+err := df.RenameColumn("name", "full_name")
+if err != nil {
+	log.Fatal(err)
+}
+fmt.Println("Renamed column:", df)
+```
+
+### Exporting to CSV
+
+```go
+err := df.ToCSV("output.csv")
+if err != nil {
+	log.Fatal(err)
+}
+fmt.Println("DataFrame exported to output.csv")
 ```
 
 ## Contributing
