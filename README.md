@@ -42,11 +42,8 @@ func main() {
 	df := goframe.NewDataFrame()
 
 	// Add columns to the DataFrame
-	nameCol := goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"})
-	df.AddColumn(nameCol)
-
-	ageCol := goframe.NewColumn("age", []int{25, 30, 35})
-	df.AddColumn(ageCol)
+	goframe.AddTypedColumn(df, goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"}))
+	goframe.AddTypedColumn(df, goframe.NewColumn("age", []int{25, 30, 35}))
 
 	// Print the DataFrame
 	fmt.Println(df)

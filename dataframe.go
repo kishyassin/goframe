@@ -26,11 +26,15 @@ func NewDataFrame() *DataFrame {
 	}
 }
 
-// AddColumn adds a new column to the DataFrame
+// AddTypedColumn adds a typed column to the DataFrame
+func AddTypedColumn[T any](df *DataFrame, col *Column[T]) error {
+	// Automatically convert the column to *Column[any]
+	anyCol := ConvertToAnyColumn(col)
+	return df.AddColumn(anyCol)
+}
+
+// AddColumn adds a generic column to the DataFrame
 func (df *DataFrame) AddColumn(col *Column[any]) error {
-	if _, exists := df.Columns[col.Name]; exists {
-		return fmt.Errorf("column '%s' already exists", col.Name)
-	}
 	df.Columns[col.Name] = col
 	return nil
 }
