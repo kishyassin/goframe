@@ -42,8 +42,8 @@ func main() {
 	df := goframe.NewDataFrame()
 
 	// Add columns to the DataFrame
-	goframe.AddTypedColumn(df, goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"}))
-	goframe.AddTypedColumn(df, goframe.NewColumn("age", []int{25, 30, 35}))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("age", []int{25, 30, 35}))
 
 	// Print the DataFrame
 	fmt.Println(df)
@@ -53,15 +53,27 @@ func main() {
 ### Importing from CSV
 
 ```go
-reader := strings.NewReader(`name,age,salary
+package main
+
+import (
+	"fmt"
+	"log"
+	"strings"
+
+	"github.com/kishyassin/goframe"
+)
+
+func main() {
+	reader := strings.NewReader(`name,age,salary
 Alice,25,50000
 Bob,30,60000
 Charlie,35,70000`)
-df, err := goframe.FromCSVReader(reader)
-if err != nil {
-	log.Fatal(err)
+	df, err := goframe.FromCSVReader(reader)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(df)
 }
-fmt.Println(df)
 ```
 
 ### Joining DataFrames
@@ -78,12 +90,12 @@ import (
 
 func main() {
 	df1 := goframe.NewDataFrame()
-	goframe.AddTypedColumn(df1, goframe.NewColumn("id", []int{1, 2, 3}))
-	goframe.AddTypedColumn(df1, goframe.NewColumn("value1", []string{"A", "B", "C"}))
+	df1.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("id", []int{1, 2, 3})))
+	df1.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("value1", []string{"A", "B", "C"})))
 
 	df2 := goframe.NewDataFrame()
-	goframe.AddTypedColumn(df2, goframe.NewColumn("id", []int{2, 3, 4}))
-	goframe.AddTypedColumn(df2, goframe.NewColumn("value2", []string{"X", "Y", "Z"}))
+	df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("id", []int{2, 3, 4})))
+	df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("value2", []string{"X", "Y", "Z"})))
 
 	// Perform an inner join
 	joined, err := df1.Join(df2, "id", "inner")
@@ -107,8 +119,8 @@ import (
 
 func main() {
 	df := goframe.NewDataFrame()
-	goframe.AddTypedColumn(df, goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"}))
-	goframe.AddTypedColumn(df, goframe.NewColumn("age", []int{25, 30, 35}))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("age", []int{25, 30, 35}))
 
 	// Access a row
 	row, _ := df.Row(1)
@@ -142,8 +154,8 @@ import (
 
 func main() {
 	df := goframe.NewDataFrame()
-	goframe.AddTypedColumn(df, goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"}))
-	goframe.AddTypedColumn(df, goframe.NewColumn("age", []int{25, 30, 35}))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("age", []int{25, 30, 35}))
 
 	err := df.RenameColumn("name", "full_name")
 	if err != nil {
@@ -156,11 +168,26 @@ func main() {
 ### Exporting to CSV
 
 ```go
-err := df.ToCSV("output.csv")
-if err != nil {
-	log.Fatal(err)
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/kishyassin/goframe"
+)
+
+func main() {
+	df := goframe.NewDataFrame()
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("age", []int{25, 30, 35})))
+
+	err := df.ToCSV("output.csv")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("DataFrame exported to output.csv")
 }
-fmt.Println("DataFrame exported to output.csv")
 ```
 
 ### Advanced Features
@@ -172,13 +199,27 @@ package main
 
 import (
 	"fmt"
+	"time"
 	"github.com/kishyassin/goframe"
 )
 
 func main() {
 	df := goframe.NewDataFrame()
-	goframe.AddTypedColumn(df, goframe.NewColumn("date", []string{"2025-09-14", "2025-09-15", "2025-09-16"}))
-	goframe.AddTypedColumn(df, goframe.NewColumn("value", []float64{10.5, 20.3, 30.7}))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("date", []string{"2025-09-14", "2025-09-15", "2025-09-16"})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("value", []float64{10.5, 20.3, 30.7})))
+
+	// Convert the "date" column from string to time.Time
+	dateCol, _ := df.Select("date")
+	var dateTimes []time.Time
+	for _, dateStr := range dateCol.Data {
+		parsedDate, err := time.Parse("2006-01-02", dateStr.(string))
+		if err != nil {
+			fmt.Println("Error parsing date:", err)
+			return
+		}
+		dateTimes = append(dateTimes, parsedDate)
+	}
+	df.Columns["date"] = goframe.ConvertToAnyColumn(goframe.NewColumn("date", dateTimes))
 
 	// Resample data to daily frequency
 	resampled, err := df.Resample("date", "D", func(values []any) any {
@@ -206,16 +247,23 @@ func main() {
 package main
 
 import (
+	"fmt"
 	"github.com/kishyassin/goframe"
 )
 
 func main() {
 	df := goframe.NewDataFrame()
-	df.AddColumn(goframe.NewColumn("x", []int{1, 2, 3}))
-	df.AddColumn(goframe.NewColumn("y", []float64{2.5, 3.5, 4.5}))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("x", []float64{1, 2, 3})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("y", []float64{2.5, 3.5, 4.5})))
 
 	// Generate a line plot
-	df.LinePlot("x", "y", "line_plot.png")
+	err := df.LinePlot("x", "y", "line_plot.png")
+	if err != nil {
+		fmt.Println("Error generating line plot:", err)
+		return
+	}
+
+	fmt.Println("Line plot saved as 'line_plot.png'")
 }
 ```
 

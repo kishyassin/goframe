@@ -1,3 +1,8 @@
+// Package goframe provides a simple and flexible framework for working with tabular data in Go.
+// It includes support for creating, manipulating, and analyzing data frames, as well as exporting
+// and importing data from CSV files. The package is designed to be type-safe and easy to use,
+// making it suitable for data analysis, machine learning, and general data processing tasks.
+
 package goframe
 
 import (
@@ -6,13 +11,21 @@ import (
 	"strconv"
 )
 
-// Series represents a single column of data with a name and type
+// Series represents a single column of data with a name and type.
+// It provides methods for accessing and manipulating the data.
 type Series struct {
 	Name string
 	Data []interface{}
 }
 
-// NewSeries creates a new Series with the given name and data
+// NewSeries creates a new Series with the given name and data.
+//
+// Parameters:
+//   - name: The name of the series.
+//   - data: The data for the series.
+//
+// Returns:
+//   - *Series: A pointer to the newly created Series.
 func NewSeries(name string, data []interface{}) *Series {
 	return &Series{
 		Name: name,
@@ -20,12 +33,22 @@ func NewSeries(name string, data []interface{}) *Series {
 	}
 }
 
-// Len returns the length of the series
+// Len returns the length of the series.
+//
+// Returns:
+//   - int: The number of elements in the series.
 func (s *Series) Len() int {
 	return len(s.Data)
 }
 
-// At returns the value at the given index
+// At returns the value at the given index.
+//
+// Parameters:
+//   - index: The index of the value to retrieve.
+//
+// Returns:
+//   - interface{}: The value at the specified index.
+//   - error: An error if the index is out of bounds.
 func (s *Series) At(index int) interface{} {
 	if index < 0 || index >= len(s.Data) {
 		return nil
@@ -33,7 +56,11 @@ func (s *Series) At(index int) interface{} {
 	return s.Data[index]
 }
 
-// AsFloat64 returns the series data as float64 slice, converting where possible
+// AsFloat64 returns the series data as a float64 slice, converting where possible.
+//
+// Returns:
+//   - []float64: The data converted to float64.
+//   - error: An error if any value cannot be converted.
 func (s *Series) AsFloat64() ([]float64, error) {
 	result := make([]float64, len(s.Data))
 	for i, v := range s.Data {
@@ -59,7 +86,11 @@ func (s *Series) AsFloat64() ([]float64, error) {
 	return result, nil
 }
 
-// Mean calculates the mean of numeric values in the series
+// Mean calculates the mean of numeric values in the series.
+//
+// Returns:
+//   - float64: The mean of the numeric values.
+//   - error: An error if the series is empty or contains non-numeric values.
 func (s *Series) Mean() (float64, error) {
 	nums, err := s.AsFloat64()
 	if err != nil {
@@ -76,7 +107,11 @@ func (s *Series) Mean() (float64, error) {
 	return sum / float64(len(nums)), nil
 }
 
-// Sum calculates the sum of numeric values in the series
+// Sum calculates the sum of numeric values in the series.
+//
+// Returns:
+//   - float64: The sum of the numeric values.
+//   - error: An error if the series contains non-numeric values.
 func (s *Series) Sum() (float64, error) {
 	nums, err := s.AsFloat64()
 	if err != nil {
@@ -90,7 +125,11 @@ func (s *Series) Sum() (float64, error) {
 	return sum, nil
 }
 
-// Min finds the minimum value in the series
+// Min finds the minimum value in the series.
+//
+// Returns:
+//   - float64: The minimum value.
+//   - error: An error if the series is empty or contains non-numeric values.
 func (s *Series) Min() (float64, error) {
 	nums, err := s.AsFloat64()
 	if err != nil {
@@ -109,7 +148,11 @@ func (s *Series) Min() (float64, error) {
 	return min, nil
 }
 
-// Max finds the maximum value in the series
+// Max finds the maximum value in the series.
+//
+// Returns:
+//   - float64: The maximum value.
+//   - error: An error if the series is empty or contains non-numeric values.
 func (s *Series) Max() (float64, error) {
 	nums, err := s.AsFloat64()
 	if err != nil {

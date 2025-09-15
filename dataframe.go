@@ -1,3 +1,8 @@
+// Package goframe provides a simple and flexible framework for working with tabular data in Go.
+// It includes support for creating, manipulating, and analyzing data frames, as well as exporting
+// and importing data from CSV files. The package is designed to be type-safe and easy to use,
+// making it suitable for data analysis, machine learning, and general data processing tasks.
+
 package goframe
 
 import (
@@ -14,32 +19,55 @@ import (
 	"github.com/wcharczuk/go-chart/v2"
 )
 
-// DataFrame represents a collection of typed columns
+// DataFrame represents a collection of typed columns.
+// It provides methods for adding, removing, and manipulating columns and rows.
 type DataFrame struct {
 	Columns map[string]*Column[any] // Map column name to generic Column
 }
 
-// NewDataFrame creates a new empty DataFrame
+// NewDataFrame creates a new empty DataFrame.
+//
+// Returns:
+//   - *DataFrame: A pointer to the newly created DataFrame.
 func NewDataFrame() *DataFrame {
 	return &DataFrame{
 		Columns: make(map[string]*Column[any]),
 	}
 }
 
-// AddTypedColumn adds a typed column to the DataFrame
+// AddTypedColumn adds a typed column to the DataFrame.
+//
+// Parameters:
+//   - df: The DataFrame to which the column will be added.
+//   - col: The typed column to add.
+//
+// Returns:
+//   - error: An error if the operation fails.
 func AddTypedColumn[T any](df *DataFrame, col *Column[T]) error {
 	// Automatically convert the column to *Column[any]
 	anyCol := ConvertToAnyColumn(col)
 	return df.AddColumn(anyCol)
 }
 
-// AddColumn adds a generic column to the DataFrame
+// AddColumn adds a generic column to the DataFrame.
+//
+// Parameters:
+//   - col: The generic column to add.
+//
+// Returns:
+//   - error: An error if the operation fails.
 func (df *DataFrame) AddColumn(col *Column[any]) error {
 	df.Columns[col.Name] = col
 	return nil
 }
 
-// DropColumn removes a column from the DataFrame
+// DropColumn removes a column from the DataFrame.
+//
+// Parameters:
+//   - name: The name of the column to remove.
+//
+// Returns:
+//   - error: An error if the column does not exist.
 func (df *DataFrame) DropColumn(name string) error {
 	if _, exists := df.Columns[name]; !exists {
 		return fmt.Errorf("column '%s' does not exist", name)
@@ -49,7 +77,10 @@ func (df *DataFrame) DropColumn(name string) error {
 	return nil
 }
 
-// Nrows returns the number of rows in the DataFrame
+// Nrows returns the number of rows in the DataFrame.
+//
+// Returns:
+//   - int: The number of rows in the DataFrame.
 func (df *DataFrame) Nrows() int {
 	for _, col := range df.Columns {
 		return col.Len() // Return the length of the first column
@@ -57,12 +88,18 @@ func (df *DataFrame) Nrows() int {
 	return 0 // Return 0 if there are no columns
 }
 
-// Ncols returns the number of columns in the DataFrame
+// Ncols returns the number of columns in the DataFrame.
+//
+// Returns:
+//   - int: The number of columns in the DataFrame.
 func (df *DataFrame) Ncols() int {
 	return len(df.Columns)
 }
 
-// ColumnNames returns the names of all columns in the DataFrame
+// ColumnNames returns the names of all columns in the DataFrame.
+//
+// Returns:
+//   - []string: A sorted list of column names.
 func (df *DataFrame) ColumnNames() []string {
 	names := make([]string, 0, len(df.Columns))
 	for name := range df.Columns {
@@ -72,7 +109,14 @@ func (df *DataFrame) ColumnNames() []string {
 	return names
 }
 
-// Select returns a column by name
+// Select returns a column by name.
+//
+// Parameters:
+//   - name: The name of the column to select.
+//
+// Returns:
+//   - *Column[any]: The selected column.
+//   - error: An error if the column does not exist.
 func (df *DataFrame) Select(name string) (*Column[any], error) {
 	col, exists := df.Columns[name]
 	if !exists {
@@ -81,7 +125,14 @@ func (df *DataFrame) Select(name string) (*Column[any], error) {
 	return col, nil
 }
 
-// Row returns a row by index
+// Row returns a row by index.
+//
+// Parameters:
+//   - index: The index of the row to retrieve.
+//
+// Returns:
+//   - map[string]any: A map representing the row, with column names as keys.
+//   - error: An error if the index is out of bounds.
 func (df *DataFrame) Row(index int) (map[string]any, error) {
 	if index < 0 || index >= df.Nrows() {
 		return nil, fmt.Errorf("index out of bounds")
@@ -98,7 +149,13 @@ func (df *DataFrame) Row(index int) (map[string]any, error) {
 	return row, nil
 }
 
-// Filter returns a new DataFrame with rows that satisfy the given condition
+// Filter returns a new DataFrame with rows that satisfy the given condition.
+//
+// Parameters:
+//   - condition: A function that takes a row and returns true if the row should be included.
+//
+// Returns:
+//   - *DataFrame: A new DataFrame containing the filtered rows.
 func (df *DataFrame) Filter(condition func(row map[string]any) bool) *DataFrame {
 	filtered := NewDataFrame()
 
@@ -126,7 +183,14 @@ func (df *DataFrame) Filter(condition func(row map[string]any) bool) *DataFrame 
 	return filtered
 }
 
-// FromCSV creates a DataFrame from a CSV file
+// FromCSV creates a DataFrame from a CSV file.
+//
+// Parameters:
+//   - filename: The path to the CSV file.
+//
+// Returns:
+//   - *DataFrame: The created DataFrame.
+//   - error: An error if the file cannot be read.
 func FromCSV(filename string) (*DataFrame, error) {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -137,7 +201,14 @@ func FromCSV(filename string) (*DataFrame, error) {
 	return FromCSVReader(file)
 }
 
-// FromCSVReader creates a DataFrame from a CSV reader
+// FromCSVReader creates a DataFrame from a CSV reader.
+//
+// Parameters:
+//   - reader: An io.Reader for the CSV data.
+//
+// Returns:
+//   - *DataFrame: The created DataFrame.
+//   - error: An error if the data cannot be read.
 func FromCSVReader(reader io.Reader) (*DataFrame, error) {
 	csvReader := csv.NewReader(reader)
 
@@ -184,7 +255,13 @@ func FromCSVReader(reader io.Reader) (*DataFrame, error) {
 	return df, nil
 }
 
-// ToCSV exports the DataFrame to a CSV file
+// ToCSV exports the DataFrame to a CSV file.
+//
+// Parameters:
+//   - filename: The path to the output CSV file.
+//
+// Returns:
+//   - error: An error if the file cannot be written.
 func (df *DataFrame) ToCSV(filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
@@ -195,7 +272,13 @@ func (df *DataFrame) ToCSV(filename string) error {
 	return df.ToCSVWriter(file)
 }
 
-// ToCSVWriter exports the DataFrame to a CSV writer
+// ToCSVWriter exports the DataFrame to a CSV writer.
+//
+// Parameters:
+//   - writer: An io.Writer for the CSV data.
+//
+// Returns:
+//   - error: An error if the data cannot be written.
 func (df *DataFrame) ToCSVWriter(writer io.Writer) error {
 	csvWriter := csv.NewWriter(writer)
 	defer csvWriter.Flush()
@@ -224,7 +307,10 @@ func (df *DataFrame) ToCSVWriter(writer io.Writer) error {
 	return nil
 }
 
-// String returns a string representation of the DataFrame
+// String returns a string representation of the DataFrame.
+//
+// Returns:
+//   - string: A string representation of the DataFrame.
 func (df *DataFrame) String() string {
 	if df.Nrows() == 0 {
 		return "Empty DataFrame"
@@ -267,7 +353,13 @@ func (df *DataFrame) String() string {
 	return result.String()
 }
 
-// Head returns the first n rows of the DataFrame
+// Head returns the first n rows of the DataFrame.
+//
+// Parameters:
+//   - n: The number of rows to return.
+//
+// Returns:
+//   - *DataFrame: A new DataFrame containing the first n rows.
 func (df *DataFrame) Head(n int) *DataFrame {
 	if n > df.Nrows() {
 		n = df.Nrows()
@@ -284,7 +376,13 @@ func (df *DataFrame) Head(n int) *DataFrame {
 	return head
 }
 
-// Tail returns the last n rows of the DataFrame
+// Tail returns the last n rows of the DataFrame.
+//
+// Parameters:
+//   - n: The number of rows to return.
+//
+// Returns:
+//   - *DataFrame: A new DataFrame containing the last n rows.
 func (df *DataFrame) Tail(n int) *DataFrame {
 	totalRows := df.Nrows()
 	if n > totalRows {
