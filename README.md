@@ -71,17 +71,19 @@ package main
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/kishyassin/goframe"
 )
 
 func main() {
 	df1 := goframe.NewDataFrame()
-	df1.AddColumn(goframe.NewColumn("id", []int{1, 2, 3}))
-	df1.AddColumn(goframe.NewColumn("value1", []string{"A", "B", "C"}))
+	goframe.AddTypedColumn(df1, goframe.NewColumn("id", []int{1, 2, 3}))
+	goframe.AddTypedColumn(df1, goframe.NewColumn("value1", []string{"A", "B", "C"}))
 
 	df2 := goframe.NewDataFrame()
-	df2.AddColumn(goframe.NewColumn("id", []int{2, 3, 4}))
-	df2.AddColumn(goframe.NewColumn("value2", []string{"X", "Y", "Z"}))
+	goframe.AddTypedColumn(df2, goframe.NewColumn("id", []int{2, 3, 4}))
+	goframe.AddTypedColumn(df2, goframe.NewColumn("value2", []string{"X", "Y", "Z"}))
 
 	// Perform an inner join
 	joined, err := df1.Join(df2, "id", "inner")
@@ -105,8 +107,8 @@ import (
 
 func main() {
 	df := goframe.NewDataFrame()
-	df.AddColumn(goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"}))
-	df.AddColumn(goframe.NewColumn("age", []int{25, 30, 35}))
+	goframe.AddTypedColumn(df, goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"}))
+	goframe.AddTypedColumn(df, goframe.NewColumn("age", []int{25, 30, 35}))
 
 	// Access a row
 	row, _ := df.Row(1)
@@ -129,11 +131,26 @@ func main() {
 ### Renaming Columns
 
 ```go
-err := df.RenameColumn("name", "full_name")
-if err != nil {
-	log.Fatal(err)
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/kishyassin/goframe"
+)
+
+func main() {
+	df := goframe.NewDataFrame()
+	goframe.AddTypedColumn(df, goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"}))
+	goframe.AddTypedColumn(df, goframe.NewColumn("age", []int{25, 30, 35}))
+
+	err := df.RenameColumn("name", "full_name")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Renamed column:", df)
 }
-fmt.Println("Renamed column:", df)
 ```
 
 ### Exporting to CSV
@@ -160,11 +177,25 @@ import (
 
 func main() {
 	df := goframe.NewDataFrame()
-	df.AddColumn(goframe.NewColumn("date", []string{"2025-09-14", "2025-09-15", "2025-09-16"}))
-	df.AddColumn(goframe.NewColumn("value", []float64{10.5, 20.3, 30.7}))
+	goframe.AddTypedColumn(df, goframe.NewColumn("date", []string{"2025-09-14", "2025-09-15", "2025-09-16"}))
+	goframe.AddTypedColumn(df, goframe.NewColumn("value", []float64{10.5, 20.3, 30.7}))
 
 	// Resample data to daily frequency
-	resampled := df.Resample("date", "D")
+	resampled, err := df.Resample("date", "D", func(values []any) any {
+		// Example aggregation function: calculate the sum
+		sum := 0.0
+		for _, v := range values {
+			if num, ok := v.(float64); ok {
+				sum += num
+			}
+		}
+		return sum
+	})
+	if err != nil {
+		fmt.Println("Error during resampling:", err)
+		return
+	}
+
 	fmt.Println("Resampled DataFrame:", resampled)
 }
 ```
