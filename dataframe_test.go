@@ -338,3 +338,154 @@ func TestVisualization(t *testing.T) {
 		t.Errorf("BarPlot failed: %v", barPlotErr)
 	}
 }
+
+func TestFillNa(t *testing.T) {
+	df := goframe.NewDataFrame()
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("x", []any{1, nil, 3, nil, 5})))
+
+	fillValue := 0
+
+	df.FillNa(fillValue)
+
+	dataCol, err := df.Select("x")
+	if err != nil {
+		t.Fatalf("Failed to select 'data' column: %v", err)
+	}
+
+	// Test FillNa
+	for i, value := range dataCol.Data {
+		if i == 1 || i == 3 {
+			if value != fillValue {
+				t.Errorf("Expected fillValue: %v , got %v", fillValue, value)
+			}
+		}
+
+		if value == nil {
+			t.Errorf("Expected non Nil, got Nil")
+		}
+	}
+
+}
+
+func TestDropNa(t *testing.T) {
+	df := goframe.NewDataFrame()
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("x", []any{1, nil, 3, nil, 5})))
+
+	df.DropNa()
+
+	dataCol, err := df.Select("x")
+	if err != nil {
+		t.Fatalf("Failed to select 'data' column: %v", err)
+	}
+
+	// Test DropNa
+	for _, value := range dataCol.Data {
+
+		if value == nil {
+			t.Errorf("Expected non Nil, got Nil")
+		}
+	}
+}
+
+func TestAstype(t *testing.T) {
+
+	t.Run("Float64ToInt", func(t *testing.T) {
+		df := goframe.NewDataFrame()
+		floatCol := "floatCol"
+		df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn(floatCol, []float64{1, 2, 3, 4, 5})))
+
+		err := df.Astype(floatCol, "int")
+		if err != nil {
+			t.Fatalf("Astype failed: %v", err)
+		}
+
+		dataCol, err := df.Select(floatCol)
+		if err != nil {
+			t.Fatalf("Failed to select %v column: %v", floatCol, err)
+		}
+
+		// Test AsType to convert float64 to int types
+		expectedValues := []int{1, 2, 3, 4, 5}
+		for i, value := range dataCol.Data {
+			if reflect.ValueOf(value).Kind() != reflect.Int {
+				t.Errorf("Index %d: Expected int, got %v", i, reflect.ValueOf(value).Kind())
+			}
+			if value.(int) != expectedValues[i] {
+				t.Errorf("Index %d: Expected value %v, got %v", i, expectedValues[i], value)
+			}
+		}
+	})
+
+	t.Run("IntToFloat64", func(t *testing.T) {
+		intCol := "intCol"
+		df := goframe.NewDataFrame()
+		df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn(intCol, []int{1, 2, 3, 4, 5})))
+
+		df.Astype(intCol, "float64")
+
+		dataCol, err := df.Select(intCol)
+		if err != nil {
+			t.Fatalf("Failed to select %v column: %v", intCol, err)
+		}
+
+		// Test AsType to convert int to float64 type
+		expectedValues := []float64{1, 2, 3, 4, 5}
+		for i, value := range dataCol.Data {
+			if reflect.ValueOf(value).Kind() != reflect.Float64 {
+				t.Errorf("Index %d: Expected float64, got %v", i, reflect.ValueOf(value).Kind())
+			}
+			if value.(float64) != expectedValues[i] {
+				t.Errorf("Index %d: Expected value %v, got %v", i, expectedValues[i], value)
+			}
+		}
+	})
+
+	t.Run("IntToString", func(t *testing.T) {
+		intCol := "intCol"
+		df := goframe.NewDataFrame()
+		df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn(intCol, []int{10, 20, 30})))
+
+		df.Astype(intCol, "string")
+
+		dataCol, err := df.Select(intCol)
+		if err != nil {
+			t.Fatalf("Failed to select %v column: %v", intCol, err)
+		}
+
+		// Test AsType to convert int to string type
+		expectedValues := []string{"10", "20", "30"}
+		for i, value := range dataCol.Data {
+			if reflect.ValueOf(value).Kind() != reflect.String {
+				t.Errorf("Index %d: Expected string, got %v", i, reflect.ValueOf(value).Kind())
+			}
+			if value.(string) != expectedValues[i] {
+				t.Errorf("Index %d: Expected value %v, got %v", i, expectedValues[i], value)
+			}
+		}
+	})
+
+	t.Run("FloatToString", func(t *testing.T) {
+		df := goframe.NewDataFrame()
+		floatCol := "floatCol"
+		df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn(floatCol, []float64{1, 2, 3, 4, 5})))
+
+		df.Astype(floatCol, "string")
+
+		dataCol, err := df.Select(floatCol)
+		if err != nil {
+			t.Fatalf("Failed to select %v column: %v", floatCol, err)
+		}
+
+		// Test AsType to convert float64 to string type
+		expectedValues := []string{"1", "2", "3", "4", "5"}
+		for i, value := range dataCol.Data {
+			if reflect.ValueOf(value).Kind() != reflect.String {
+				t.Errorf("Index %d: Expected string, got %v", i, reflect.ValueOf(value).Kind())
+			}
+			if value.(string) != expectedValues[i] {
+				t.Errorf("Index %d: Expected value %v, got %v", i, expectedValues[i], value)
+			}
+		}
+	})
+
+}
