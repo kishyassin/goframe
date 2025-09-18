@@ -191,7 +191,7 @@ func (df *DataFrame) Filter(condition func(row map[string]any) bool) *DataFrame 
 // Returns:
 //   - *DataFrame: The created DataFrame.
 //   - error: An error if the file cannot be read.
-func FromCSV(filename string) (*DataFrame, error) {
+func (df *DataFrame) FromCSV(filename string) (*DataFrame, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("error opening file: %w", err)
