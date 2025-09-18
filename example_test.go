@@ -38,8 +38,9 @@ func ExampleDataFrame_Filter() {
 
 // ExampleDataFrame_FromCSV demonstrates how to create a DataFrame from a CSV file.
 func ExampleDataFrame_FromCSV() {
+	df := goframe.NewDataFrame()
 	// Assuming a CSV file "example.csv" exists with appropriate data.
-	df, err := goframe.FromCSV("example.csv")
+	df, err := df.FromCSV("example.csv")
 	if err != nil {
 		fmt.Println("Error:", err)
 		return
