@@ -1,6 +1,7 @@
 package goframe_test
 
 import (
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -387,15 +388,26 @@ func TestVisualization(t *testing.T) {
 	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("z", []float64{5, 10, 15, 20, 25})))
 
 	// Test LinePlot
-	linePlotErr := df.LinePlot("x", "y", "line_plot_test.png")
+	linePlotFilename := "line_plot_test.png"
+	linePlotErr := df.LinePlot("x", "y", linePlotFilename)
 	if linePlotErr != nil {
 		t.Errorf("LinePlot failed: %v", linePlotErr)
 	}
 
 	// Test BarPlot
-	barPlotErr := df.BarPlot("z", "bar_plot_test.png")
+	barPlotFilename := "bar_plot_test.png"
+	barPlotErr := df.BarPlot("z", barPlotFilename)
 	if barPlotErr != nil {
 		t.Errorf("BarPlot failed: %v", barPlotErr)
+	}
+
+	_, err := os.Stat("line_plot_test.png")
+	if err != nil {
+		t.Errorf("The created file: %v can not be found", linePlotFilename)
+	}
+	_, err = os.Stat("bar_plot_test.png")
+	if err != nil {
+		t.Errorf("The created file: %v can not be found", barPlotFilename)
 	}
 }
 
