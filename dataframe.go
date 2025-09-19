@@ -57,13 +57,15 @@ func AddTypedColumn[T any](df *DataFrame, col *Column[T]) error {
 // Returns:
 //   - error: An error if the operation fails.
 func (df *DataFrame) AddColumn(col *Column[any]) error {
-	_, ok := df.Columns[col.Name]
-	if ok {
-		return fmt.Errorf("Column '%v' already exists.", col.Name)
+	_, exists := df.Columns[col.Name]
+	if exists {
+		return fmt.Errorf("Column '%v' already exists", col.Name)
 	}
+
 	df.Columns[col.Name] = col
 	return nil
 }
+
 // DropColumn removes a column from the DataFrame.
 //
 // Parameters:
