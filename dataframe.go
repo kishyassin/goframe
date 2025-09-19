@@ -796,13 +796,13 @@ func (df *DataFrame) Astype(columnName string, targetType string) error {
 			if floatVal, ok := v.(float64); ok {
 				newData[i] = int(floatVal)
 			} else {
-				return fmt.Errorf("cannot convert value '%v' to int", v)
+				return fmt.Errorf("cannot convert value '%v' of type %T to int", v, v)
 			}
 		case "float64":
 			if intVal, ok := v.(int); ok {
 				newData[i] = float64(intVal)
 			} else {
-				return fmt.Errorf("cannot convert value '%v' to float64", v)
+				return fmt.Errorf("cannot convert value '%v' of type %T to float64", v, v)
 			}
 		case "string":
 			newData[i] = fmt.Sprintf("%v", v)
