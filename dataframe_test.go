@@ -132,8 +132,14 @@ func TestDataFrameRowOperations(t *testing.T) {
 	df := goframe.NewDataFrame()
 
 	// Add initial columns
-	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"})))
-	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("age", []int{25, 30, 35})))
+	err := df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"})))
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	err = df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("age", []int{25, 30, 35})))
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 
 	// Test Row method
 	row, err := df.Row(1)
