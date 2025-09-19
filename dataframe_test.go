@@ -195,8 +195,18 @@ func TestDataFrameAggregations(t *testing.T) {
 	df := goframe.NewDataFrame()
 
 	// Add columns
-	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("col1", []int{1, 2, 3, 4})))
-	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("col2", []float64{1.5, 2.5, 3.5, 4.5})))
+	err := df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("col1", []int{1, 2, 3, 4})))
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	err = df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("col2", []float64{1.5, 2.5, 3.5, 4.5})))
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	err = df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("badCol", []string{"1.0", "2.0", "3.0", "4.0", "5.0"})))
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 
 	// Test Mean
 	means, err := df.Mean()
@@ -245,6 +255,50 @@ func TestDataFrameAggregations(t *testing.T) {
 	if maxs["col2"] != 4.5 {
 		t.Errorf("Expected max of col2 to be 4.5, got %v", maxs["col2"])
 	}
+
+	// Test Bad Data
+	df2 := goframe.NewDataFrame()
+	err2 := df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("badCol", []string{"hello", "world"})))
+	if err2 != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	// Test Mean with Bad Data
+	means2, err2 := df2.Mean()
+	if err2 == nil {
+		t.Errorf("Expected an error, got nil instead")
+	}
+	if means2 != nil {
+		t.Errorf("Expected a nil, got %v instead", means2)
+	}
+
+	// Test Sum with Bad Data
+	sum2, err2 := df2.Sum()
+	if err2 == nil {
+		t.Errorf("Expected an error, got nil instead")
+	}
+	if sum2 != nil {
+		t.Errorf("Expected a nil, got %v instead", sum2)
+	}
+
+	// Test Min with Bad Data
+	min, err2 := df2.Min()
+	if err2 == nil {
+		t.Errorf("Expected an error, got nil instead")
+	}
+	if min != nil {
+		t.Errorf("Expected a nil, got %v instead", min)
+	}
+
+	// Test Max with Bad Data
+	max, err2 := df2.Max()
+	if err2 == nil {
+		t.Errorf("Expected an error, got nil instead")
+	}
+	if max != nil {
+		t.Errorf("Expected a nil, got %v instead", max)
+	}
+
 }
 
 func TestDataFrameJoin(t *testing.T) {
