@@ -488,23 +488,56 @@ func TestFillNa(t *testing.T) {
 }
 
 func TestDropNa(t *testing.T) {
+
 	df := goframe.NewDataFrame()
-	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("x", []any{1, nil, 3, nil, 5})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("id", []int{1, 2, 3, 4, 5})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("value", []any{"A", nil, "C", "D", nil})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("score", []any{90, 85, 70, nil, 95})))
 
-	df.DropNa()
-
-	dataCol, err := df.Select("x")
+	err := df.DropNa()
 	if err != nil {
-		t.Fatalf("Failed to select 'data' column: %v", err)
+		t.Errorf("Failed to drop rows: %v", err)
 	}
 
-	// Test DropNa
-	for _, value := range dataCol.Data {
+	expectedRows := 2
+	if df.Nrows() != expectedRows {
+		t.Errorf("Expected %d rows after DropNa, but got %d", expectedRows, df.Nrows())
+	}
 
-		if value == nil {
-			t.Errorf("Expected non Nil, got Nil")
+	idCol, err := df.Select("id")
+	if err != nil {
+		t.Errorf("Failed to select column: id")
+	}
+	valueCol, err := df.Select("value")
+	if err != nil {
+		t.Errorf("Failed to select column: value")
+	}
+	scoreCol, err := df.Select("score")
+	if err != nil {
+		t.Errorf("Failed to select column: score")
+	}
+
+	expectedId := []int{1, 3}
+	for i, value := range idCol.Data {
+		if value != expectedId[i] {
+			t.Errorf("Expected id %d, but got %v", expectedId[i], value)
 		}
 	}
+
+	expectedValue := []any{"A", "C"}
+	for i, value := range valueCol.Data {
+		if value != expectedValue[i] {
+			t.Errorf("Expected id %d, but got %v", expectedValue[i], value)
+		}
+	}
+
+	expectedScore := []any{90, 70}
+	for i, value := range scoreCol.Data {
+		if value.(int) != expectedScore[i] {
+			t.Errorf("Expected id %d, but got %v", expectedScore[i], value)
+		}
+	}
+
 }
 
 func TestAstype(t *testing.T) {

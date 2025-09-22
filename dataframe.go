@@ -756,11 +756,14 @@ func (df *DataFrame) FillNa(value any) {
 }
 
 // DropNa removes rows with missing values from the DataFrame
-func (df *DataFrame) DropNa() {
+func (df *DataFrame) DropNa() error {
 	rowsToKeep := []int{}
 
 	for i := 0; i < df.Nrows(); i++ {
-		row, _ := df.Row(i)
+		row, err := df.Row(i)
+		if err != nil{
+			return fmt.Errorf("failed to select row:%v, %v", err, err)
+		}
 		hasNa := false
 		for _, v := range row {
 			if v == nil {
@@ -780,6 +783,8 @@ func (df *DataFrame) DropNa() {
 		}
 		col.Data = newData
 	}
+
+	return nil
 }
 
 // Astype converts the data type of a column
