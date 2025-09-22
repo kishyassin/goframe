@@ -1,6 +1,7 @@
 package goframe_test
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"sort"
@@ -312,7 +313,7 @@ func TestDataFrameJoin(t *testing.T) {
 	df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("value2", []string{"X", "Y", "Z"})))
 
 	// Test inner join
-	innerJoin, err := df1.Join(df2, "id", "inner")
+	innerJoin, err := df1.InnerJoin(df2, "id")
 	if err != nil {
 		t.Errorf("Unexpected error during inner join: %v", err)
 	}
@@ -321,7 +322,7 @@ func TestDataFrameJoin(t *testing.T) {
 	}
 
 	// Test left join
-	leftJoin, err := df1.Join(df2, "id", "left")
+	leftJoin, err := df1.LeftJoin(df2, "id")
 	if err != nil {
 		t.Errorf("Unexpected error during left join: %v", err)
 	}
@@ -330,7 +331,7 @@ func TestDataFrameJoin(t *testing.T) {
 	}
 
 	// Test right join
-	rightJoin, err := df1.Join(df2, "id", "right")
+	rightJoin, err := df1.RightJoin(df2, "id")
 	if err != nil {
 		t.Errorf("Unexpected error during right join: %v", err)
 	}
@@ -339,11 +340,15 @@ func TestDataFrameJoin(t *testing.T) {
 	}
 
 	// Test outer join
-	outerJoin, err := df1.Join(df2, "id", "outer")
+	outerJoin, err := df1.OuterJoin(df2, "id")
 	if err != nil {
 		t.Errorf("Unexpected error during outer join: %v", err)
 	}
 	if outerJoin.Nrows() != 4 {
+		for _, val := range outerJoin.Columns {
+			fmt.Printf("The column name: %v \n", val)
+			fmt.Printf("Column values: %v\n", val.Data...)
+		}
 		t.Errorf("Expected 4 rows in outer join, got %d", outerJoin.Nrows())
 	}
 }

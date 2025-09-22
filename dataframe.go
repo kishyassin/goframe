@@ -6,6 +6,7 @@
 package goframe
 
 import (
+	"maps"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -502,17 +503,142 @@ func (df *DataFrame) Max() (map[string]float64, error) {
 }
 
 // Join combines two DataFrames based on a key column and join type (inner, left, right, outer).
-func (df *DataFrame) Join(other *DataFrame, key string, joinType string) (*DataFrame, error) {
-	if _, exists := df.Columns[key]; !exists {
-		return nil, fmt.Errorf("key column '%s' does not exist in the first DataFrame", key)
-	}
-	if _, exists := other.Columns[key]; !exists {
-		return nil, fmt.Errorf("key column '%s' does not exist in the second DataFrame", key)
+
+func (df *DataFrame) InnerJoin(other *DataFrame, key string) (*DataFrame, error){
+	err := checkExists(df, other, key)
+	if err != nil {
+		return nil, err
 	}
 
 	result := NewDataFrame()
+	err = appendCols(df, other, result)
+	if err != nil {
+		return nil, err
+	}
 
-	// Add columns from both DataFrames to the result
+	for i := 0; i < df.Nrows(); i++ {
+		rowA, _ := df.Row(i)
+		for j := 0; j < other.Nrows(); j++ {
+			rowB, _ := other.Row(j)
+			if rowA[key] == rowB[key] {
+				mergedRow := mergeRows(rowA, rowB)
+				appendRowToDataFrame(result, mergedRow)
+			}
+		}
+	}
+
+	return result, nil
+
+}
+
+func (df *DataFrame) LeftJoin(other *DataFrame, key string) (*DataFrame, error){
+	err := checkExists(df, other, key)
+	if err != nil {
+		return nil, err
+	}
+
+	result := NewDataFrame()
+	err = appendCols(df, other, result)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := 0; i < df.Nrows(); i++ {
+		rowA, _ := df.Row(i)
+		matched := false
+		for j := 0; j < other.Nrows(); j++ {
+			rowB, _ := other.Row(j)
+			if rowA[key] == rowB[key] {
+				mergedRow := mergeRows(rowA, rowB)
+				appendRowToDataFrame(result, mergedRow)
+				matched = true
+			}
+		}
+		if !matched {
+			appendRowToDataFrame(result, rowA)
+		}
+	}
+
+	return result, nil
+}
+
+func (df *DataFrame) RightJoin(other *DataFrame, key string) (*DataFrame, error){
+	err := checkExists(df, other, key)
+	if err != nil {
+		return nil, err
+	}
+
+	result := NewDataFrame()
+	err = appendCols(df, other, result)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := 0; i < other.Nrows(); i++ {
+		rowB, _ := other.Row(i)
+		matched := false
+		for j := 0; j < df.Nrows(); j++ {
+			rowA, _ := df.Row(j)
+			if rowB[key] == rowA[key] {
+				mergedRow := mergeRows(rowA, rowB)
+				appendRowToDataFrame(result, mergedRow)
+				matched = true
+			}
+		}
+		if !matched {
+			appendRowToDataFrame(result, rowB)
+		}
+	}
+
+	return result, nil
+}
+
+func (df *DataFrame) OuterJoin(other *DataFrame, key string) (*DataFrame, error){
+	err := checkExists(df, other, key)
+	if err != nil {
+		return nil, err
+	}
+
+	result := NewDataFrame()
+	err = appendCols(df, other, result)
+	if err != nil {
+		return nil, err
+	}
+
+	matchedRows := make(map[any]bool)
+	for i := 0; i < df.Nrows(); i++ {
+		rowA, _ := df.Row(i)
+		matched := false
+		for j := 0; j < other.Nrows(); j++ {
+			rowB, _ := other.Row(j) // Ensure rowB is defined
+			if reflect.DeepEqual(rowA[key], rowB[key]) {
+				mergedRow := mergeRows(rowA, rowB)
+				appendRowToDataFrame(result, mergedRow)
+				matchedRows[rowA[key]] = true
+				matched = true
+			}
+		}
+		if !matched {
+			appendRowToDataFrame(result, rowA)
+		}
+	}
+
+	return result, nil
+}
+
+func checkExists(df *DataFrame, other *DataFrame, key string) error {
+	if _, exists := df.Columns[key]; !exists {
+		return fmt.Errorf("key column '%s' does not exist in the first DataFrame", key)
+	}
+	if _, exists := other.Columns[key]; !exists {
+		return fmt.Errorf("key column '%s' does not exist in the second DataFrame", key)
+	}
+
+	return nil
+}
+
+func appendCols(df *DataFrame, other *DataFrame, result *DataFrame) error {
+// Add columns from both DataFrames to the result
 	for name := range df.Columns {
 		result.Columns[name] = &Column[any]{
 			Name: name,
@@ -528,91 +654,16 @@ func (df *DataFrame) Join(other *DataFrame, key string, joinType string) (*DataF
 		}
 	}
 
-	// Perform the join based on the join type
-	switch joinType {
-	case "inner":
-		for i := 0; i < df.Nrows(); i++ {
-			rowA, _ := df.Row(i)
-			for j := 0; j < other.Nrows(); j++ {
-				rowB, _ := other.Row(j)
-				if rowA[key] == rowB[key] {
-					mergedRow := mergeRows(rowA, rowB)
-					appendRowToDataFrame(result, mergedRow)
-				}
-			}
-		}
-	case "left":
-		for i := 0; i < df.Nrows(); i++ {
-			rowA, _ := df.Row(i)
-			matched := false
-			for j := 0; j < other.Nrows(); j++ {
-				rowB, _ := other.Row(j)
-				if rowA[key] == rowB[key] {
-					mergedRow := mergeRows(rowA, rowB)
-					appendRowToDataFrame(result, mergedRow)
-					matched = true
-				}
-			}
-			if !matched {
-				appendRowToDataFrame(result, rowA)
-			}
-		}
-	case "right":
-		for i := 0; i < other.Nrows(); i++ {
-			rowB, _ := other.Row(i)
-			matched := false
-			for j := 0; j < df.Nrows(); j++ {
-				rowA, _ := df.Row(j)
-				if rowB[key] == rowA[key] {
-					mergedRow := mergeRows(rowA, rowB)
-					appendRowToDataFrame(result, mergedRow)
-					matched = true
-				}
-			}
-			if !matched {
-				appendRowToDataFrame(result, rowB)
-			}
-		}
-	case "outer":
-		matchedRows := make(map[any]bool)
-		for i := 0; i < df.Nrows(); i++ {
-			rowA, _ := df.Row(i)
-			matched := false
-			for j := 0; j < other.Nrows(); j++ {
-				rowB, _ := other.Row(j) // Ensure rowB is defined
-				if reflect.DeepEqual(rowA[key], rowB[key]) {
-					mergedRow := mergeRows(rowA, rowB)
-					appendRowToDataFrame(result, mergedRow)
-					matchedRows[rowA[key]] = true
-					matched = true
-				}
-			}
-			if !matched {
-				appendRowToDataFrame(result, rowA)
-			}
-		}
-		for i := 0; i < other.Nrows(); i++ {
-			rowB, _ := other.Row(i)
-			if _, exists := matchedRows[rowB[key]]; !exists {
-				appendRowToDataFrame(result, rowB)
-			}
-		}
-	default:
-		return nil, fmt.Errorf("unsupported join type: %s", joinType)
-	}
-
-	return result, nil
+	return nil
 }
 
 // mergeRows merges two rows into one
 func mergeRows(rowA, rowB map[string]any) map[string]any {
 	merged := make(map[string]any)
-	for k, v := range rowA {
-		merged[k] = v
-	}
-	for k, v := range rowB {
-		if _, exists := merged[k]; !exists {
-			merged[k] = v
+	maps.Copy(merged, rowA)
+	for id, v := range rowB {
+		if _, exists := merged[id]; !exists {
+			merged[id] = v
 		}
 	}
 	return merged
