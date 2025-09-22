@@ -412,30 +412,78 @@ func TestVisualization(t *testing.T) {
 }
 
 func TestFillNa(t *testing.T) {
-	df := goframe.NewDataFrame()
-	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("x", []any{1, nil, 3, nil, 5})))
 
 	fillValue := 0
 
-	df.FillNa(fillValue)
+	t.Run("MixedDataColumn", func(t *testing.T) {
+		df := goframe.NewDataFrame()
+		df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("mixed", []any{1, nil, 3, nil, 5})))
 
-	dataCol, err := df.Select("x")
-	if err != nil {
-		t.Fatalf("Failed to select 'data' column: %v", err)
-	}
+		df.FillNa(fillValue)
 
-	// Test FillNa
-	for i, value := range dataCol.Data {
-		if i == 1 || i == 3 {
-			if value != fillValue {
-				t.Errorf("Expected fillValue: %v , got %v", fillValue, value)
+		// Test column 'mixed'
+		dataCol, err := df.Select("mixed")
+		if err != nil {
+			t.Fatalf("Failed to select 'data' column: %v", err)
+		}
+
+		// Test FillNa
+		for id, value := range dataCol.Data {
+			if id == 1 || id == 3 {
+				if value != fillValue {
+					t.Errorf("Expected fillValue: %v , got %v", fillValue, value)
+				}
+			}
+
+			if value == nil {
+				t.Errorf("Expected non Nil, got Nil")
 			}
 		}
+	})
 
-		if value == nil {
-			t.Errorf("Expected non Nil, got Nil")
+	t.Run("allNil", func(t *testing.T) {
+		df := goframe.NewDataFrame()
+		df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("allNil", []any{nil, nil, nil, nil, nil})))
+
+		df.FillNa(fillValue)
+
+		// Test column 'allNil'
+		dataCol, err := df.Select("allNil")
+		if err != nil {
+			t.Fatalf("Failed to select 'data' column: %v", err)
 		}
-	}
+
+		// Test FillNa
+		for _, value := range dataCol.Data {
+
+			if value != fillValue {
+				t.Errorf("Expected %v, got %v", fillValue, value)
+			}
+		}
+	})
+
+	t.Run("noNill", func(t *testing.T) {
+		df := goframe.NewDataFrame()
+		df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("noNill", []any{1, 2, 3, 4, 5})))
+
+		df.FillNa(fillValue)
+
+		// Test column 'allNil'
+		dataCol, err := df.Select("noNill")
+		if err != nil {
+			t.Fatalf("Failed to select 'data' column: %v", err)
+		}
+
+		expected := []any{1, 2, 3, 4, 5}
+
+		// Test FillNa
+		for id, value := range dataCol.Data {
+
+			if value != expected[id] {
+				t.Errorf("Expected %v, got %v", expected[id], value)
+			}
+		}
+	})
 
 }
 
