@@ -76,11 +76,11 @@ func (s *Series) AsFloat64() ([]float64, error) {
 		case string:
 			f, err := strconv.ParseFloat(val, 64)
 			if err != nil {
-				return nil, fmt.Errorf("cannot convert %v to float64", val)
+				return nil, fmt.Errorf("cannot convert %v of type %T to float64", val, val)
 			}
 			result[i] = f
 		default:
-			return nil, fmt.Errorf("cannot convert %T to float64", val)
+			return nil, fmt.Errorf("cannot convert %v of type %T to float64", val, val)
 		}
 	}
 	return result, nil

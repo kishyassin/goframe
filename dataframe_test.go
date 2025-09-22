@@ -1,6 +1,7 @@
 package goframe_test
 
 import (
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -132,8 +133,14 @@ func TestDataFrameRowOperations(t *testing.T) {
 	df := goframe.NewDataFrame()
 
 	// Add initial columns
-	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"})))
-	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("age", []int{25, 30, 35})))
+	err := df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"})))
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	err = df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("age", []int{25, 30, 35})))
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 
 	// Test Row method
 	row, err := df.Row(1)
@@ -189,8 +196,18 @@ func TestDataFrameAggregations(t *testing.T) {
 	df := goframe.NewDataFrame()
 
 	// Add columns
-	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("col1", []int{1, 2, 3, 4})))
-	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("col2", []float64{1.5, 2.5, 3.5, 4.5})))
+	err := df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("col1", []int{1, 2, 3, 4})))
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	err = df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("col2", []float64{1.5, 2.5, 3.5, 4.5})))
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	err = df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("badCol", []string{"1.0", "2.0", "3.0", "4.0", "5.0"})))
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 
 	// Test Mean
 	means, err := df.Mean()
@@ -239,6 +256,50 @@ func TestDataFrameAggregations(t *testing.T) {
 	if maxs["col2"] != 4.5 {
 		t.Errorf("Expected max of col2 to be 4.5, got %v", maxs["col2"])
 	}
+
+	// Test Bad Data
+	df2 := goframe.NewDataFrame()
+	err2 := df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("badCol", []string{"hello", "world"})))
+	if err2 != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	// Test Mean with Bad Data
+	means2, err2 := df2.Mean()
+	if err2 == nil {
+		t.Errorf("Expected an error, got nil instead")
+	}
+	if means2 != nil {
+		t.Errorf("Expected a nil, got %v instead", means2)
+	}
+
+	// Test Sum with Bad Data
+	sum2, err2 := df2.Sum()
+	if err2 == nil {
+		t.Errorf("Expected an error, got nil instead")
+	}
+	if sum2 != nil {
+		t.Errorf("Expected a nil, got %v instead", sum2)
+	}
+
+	// Test Min with Bad Data
+	min, err2 := df2.Min()
+	if err2 == nil {
+		t.Errorf("Expected an error, got nil instead")
+	}
+	if min != nil {
+		t.Errorf("Expected a nil, got %v instead", min)
+	}
+
+	// Test Max with Bad Data
+	max, err2 := df2.Max()
+	if err2 == nil {
+		t.Errorf("Expected an error, got nil instead")
+	}
+	if max != nil {
+		t.Errorf("Expected a nil, got %v instead", max)
+	}
+
 }
 
 func TestDataFrameJoin(t *testing.T) {
@@ -327,64 +388,156 @@ func TestVisualization(t *testing.T) {
 	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("z", []float64{5, 10, 15, 20, 25})))
 
 	// Test LinePlot
-	linePlotErr := df.LinePlot("x", "y", "line_plot_test.png")
+	linePlotFilename := "line_plot_test.png"
+	linePlotErr := df.LinePlot("x", "y", linePlotFilename)
 	if linePlotErr != nil {
 		t.Errorf("LinePlot failed: %v", linePlotErr)
 	}
 
 	// Test BarPlot
-	barPlotErr := df.BarPlot("z", "bar_plot_test.png")
+	barPlotFilename := "bar_plot_test.png"
+	barPlotErr := df.BarPlot("z", barPlotFilename)
 	if barPlotErr != nil {
 		t.Errorf("BarPlot failed: %v", barPlotErr)
+	}
+
+	_, err := os.Stat("line_plot_test.png")
+	if err != nil {
+		t.Errorf("The created file: %v can not be found", linePlotFilename)
+	}
+	_, err = os.Stat("bar_plot_test.png")
+	if err != nil {
+		t.Errorf("The created file: %v can not be found", barPlotFilename)
 	}
 }
 
 func TestFillNa(t *testing.T) {
-	df := goframe.NewDataFrame()
-	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("x", []any{1, nil, 3, nil, 5})))
 
 	fillValue := 0
 
-	df.FillNa(fillValue)
+	t.Run("MixedDataColumn", func(t *testing.T) {
+		df := goframe.NewDataFrame()
+		df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("mixed", []any{1, nil, 3, nil, 5})))
 
-	dataCol, err := df.Select("x")
-	if err != nil {
-		t.Fatalf("Failed to select 'data' column: %v", err)
-	}
+		df.FillNa(fillValue)
 
-	// Test FillNa
-	for i, value := range dataCol.Data {
-		if i == 1 || i == 3 {
-			if value != fillValue {
-				t.Errorf("Expected fillValue: %v , got %v", fillValue, value)
+		// Test column 'mixed'
+		dataCol, err := df.Select("mixed")
+		if err != nil {
+			t.Fatalf("Failed to select 'data' column: %v", err)
+		}
+
+		// Test FillNa
+		for id, value := range dataCol.Data {
+			if id == 1 || id == 3 {
+				if value != fillValue {
+					t.Errorf("Expected fillValue: %v , got %v", fillValue, value)
+				}
+			}
+
+			if value == nil {
+				t.Errorf("Expected non Nil, got Nil")
 			}
 		}
+	})
 
-		if value == nil {
-			t.Errorf("Expected non Nil, got Nil")
+	t.Run("allNil", func(t *testing.T) {
+		df := goframe.NewDataFrame()
+		df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("allNil", []any{nil, nil, nil, nil, nil})))
+
+		df.FillNa(fillValue)
+
+		// Test column 'allNil'
+		dataCol, err := df.Select("allNil")
+		if err != nil {
+			t.Fatalf("Failed to select 'data' column: %v", err)
 		}
-	}
+
+		// Test FillNa
+		for _, value := range dataCol.Data {
+
+			if value != fillValue {
+				t.Errorf("Expected %v, got %v", fillValue, value)
+			}
+		}
+	})
+
+	t.Run("noNill", func(t *testing.T) {
+		df := goframe.NewDataFrame()
+		df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("noNill", []any{1, 2, 3, 4, 5})))
+
+		df.FillNa(fillValue)
+
+		// Test column 'allNil'
+		dataCol, err := df.Select("noNill")
+		if err != nil {
+			t.Fatalf("Failed to select 'data' column: %v", err)
+		}
+
+		expected := []any{1, 2, 3, 4, 5}
+
+		// Test FillNa
+		for id, value := range dataCol.Data {
+
+			if value != expected[id] {
+				t.Errorf("Expected %v, got %v", expected[id], value)
+			}
+		}
+	})
 
 }
 
 func TestDropNa(t *testing.T) {
+
 	df := goframe.NewDataFrame()
-	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("x", []any{1, nil, 3, nil, 5})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("id", []int{1, 2, 3, 4, 5})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("value", []any{"A", nil, "C", "D", nil})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("score", []any{90, 85, 70, nil, 95})))
 
-	df.DropNa()
-
-	dataCol, err := df.Select("x")
+	err := df.DropNa()
 	if err != nil {
-		t.Fatalf("Failed to select 'data' column: %v", err)
+		t.Errorf("Failed to drop rows: %v", err)
 	}
 
-	// Test DropNa
-	for _, value := range dataCol.Data {
+	expectedRows := 2
+	if df.Nrows() != expectedRows {
+		t.Errorf("Expected %d rows after DropNa, but got %d", expectedRows, df.Nrows())
+	}
 
-		if value == nil {
-			t.Errorf("Expected non Nil, got Nil")
+	idCol, err := df.Select("id")
+	if err != nil {
+		t.Errorf("Failed to select column: id")
+	}
+	valueCol, err := df.Select("value")
+	if err != nil {
+		t.Errorf("Failed to select column: value")
+	}
+	scoreCol, err := df.Select("score")
+	if err != nil {
+		t.Errorf("Failed to select column: score")
+	}
+
+	expectedId := []int{1, 3}
+	for i, value := range idCol.Data {
+		if value != expectedId[i] {
+			t.Errorf("Expected id %d, but got %v", expectedId[i], value)
 		}
 	}
+
+	expectedValue := []any{"A", "C"}
+	for i, value := range valueCol.Data {
+		if value != expectedValue[i] {
+			t.Errorf("Expected id %d, but got %v", expectedValue[i], value)
+		}
+	}
+
+	expectedScore := []any{90, 70}
+	for i, value := range scoreCol.Data {
+		if value.(int) != expectedScore[i] {
+			t.Errorf("Expected id %d, but got %v", expectedScore[i], value)
+		}
+	}
+
 }
 
 func TestAstype(t *testing.T) {

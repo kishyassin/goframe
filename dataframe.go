@@ -57,6 +57,11 @@ func AddTypedColumn[T any](df *DataFrame, col *Column[T]) error {
 // Returns:
 //   - error: An error if the operation fails.
 func (df *DataFrame) AddColumn(col *Column[any]) error {
+	_, exists := df.Columns[col.Name]
+	if exists {
+		return fmt.Errorf("Column '%v' already exists", col.Name)
+	}
+
 	df.Columns[col.Name] = col
 	return nil
 }
@@ -751,11 +756,14 @@ func (df *DataFrame) FillNa(value any) {
 }
 
 // DropNa removes rows with missing values from the DataFrame
-func (df *DataFrame) DropNa() {
+func (df *DataFrame) DropNa() error {
 	rowsToKeep := []int{}
 
 	for i := 0; i < df.Nrows(); i++ {
-		row, _ := df.Row(i)
+		row, err := df.Row(i)
+		if err != nil{
+			return fmt.Errorf("failed to select row:%v, %v", err, err)
+		}
 		hasNa := false
 		for _, v := range row {
 			if v == nil {
@@ -775,6 +783,8 @@ func (df *DataFrame) DropNa() {
 		}
 		col.Data = newData
 	}
+
+	return nil
 }
 
 // Astype converts the data type of a column
@@ -791,13 +801,13 @@ func (df *DataFrame) Astype(columnName string, targetType string) error {
 			if floatVal, ok := v.(float64); ok {
 				newData[i] = int(floatVal)
 			} else {
-				return fmt.Errorf("cannot convert value '%v' to int", v)
+				return fmt.Errorf("cannot convert value '%v' of type %T to int", v, v)
 			}
 		case "float64":
 			if intVal, ok := v.(int); ok {
 				newData[i] = float64(intVal)
 			} else {
-				return fmt.Errorf("cannot convert value '%v' to float64", v)
+				return fmt.Errorf("cannot convert value '%v' of type %T to float64", v, v)
 			}
 		case "string":
 			newData[i] = fmt.Sprintf("%v", v)
