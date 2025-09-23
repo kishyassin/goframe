@@ -6,10 +6,10 @@
 package goframe
 
 import (
-	"maps"
 	"encoding/csv"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"reflect"
 	"sort"
@@ -406,18 +406,6 @@ func (df *DataFrame) Tail(n int) *DataFrame {
 	return tail
 }
 
-// AppendRow adds a new row to the DataFrame
-func (df *DataFrame) AppendRow(row map[string]any) error {
-	for name, value := range row {
-		col, exists := df.Columns[name]
-		if !exists {
-			return fmt.Errorf("column '%s' does not exist", name)
-		}
-		col.Data = append(col.Data, value)
-	}
-	return nil
-}
-
 // DropRow removes a row by index from the DataFrame
 func (df *DataFrame) DropRow(i int) error {
 	if i < 0 || i >= df.Nrows() {
@@ -504,7 +492,7 @@ func (df *DataFrame) Max() (map[string]float64, error) {
 
 // Join combines two DataFrames based on a key column and join type (inner, left, right, outer).
 
-func (df *DataFrame) InnerJoin(other *DataFrame, key string) (*DataFrame, error){
+func (df *DataFrame) InnerJoin(other *DataFrame, key string) (*DataFrame, error) {
 	err := checkExists(df, other, key)
 	if err != nil {
 		return nil, err
@@ -522,7 +510,7 @@ func (df *DataFrame) InnerJoin(other *DataFrame, key string) (*DataFrame, error)
 			rowB, _ := other.Row(j)
 			if rowA[key] == rowB[key] {
 				mergedRow := mergeRows(rowA, rowB)
-				appendRowToDataFrame(result, mergedRow)
+				df.AppendRow(result, mergedRow)
 			}
 		}
 	}
@@ -531,7 +519,7 @@ func (df *DataFrame) InnerJoin(other *DataFrame, key string) (*DataFrame, error)
 
 }
 
-func (df *DataFrame) LeftJoin(other *DataFrame, key string) (*DataFrame, error){
+func (df *DataFrame) LeftJoin(other *DataFrame, key string) (*DataFrame, error) {
 	err := checkExists(df, other, key)
 	if err != nil {
 		return nil, err
@@ -550,19 +538,19 @@ func (df *DataFrame) LeftJoin(other *DataFrame, key string) (*DataFrame, error){
 			rowB, _ := other.Row(j)
 			if rowA[key] == rowB[key] {
 				mergedRow := mergeRows(rowA, rowB)
-				appendRowToDataFrame(result, mergedRow)
+				df.AppendRow(result, mergedRow)
 				matched = true
 			}
 		}
 		if !matched {
-			appendRowToDataFrame(result, rowA)
+			df.AppendRow(result, rowA)
 		}
 	}
 
 	return result, nil
 }
 
-func (df *DataFrame) RightJoin(other *DataFrame, key string) (*DataFrame, error){
+func (df *DataFrame) RightJoin(other *DataFrame, key string) (*DataFrame, error) {
 	err := checkExists(df, other, key)
 	if err != nil {
 		return nil, err
@@ -581,19 +569,19 @@ func (df *DataFrame) RightJoin(other *DataFrame, key string) (*DataFrame, error)
 			rowA, _ := df.Row(j)
 			if rowB[key] == rowA[key] {
 				mergedRow := mergeRows(rowA, rowB)
-				appendRowToDataFrame(result, mergedRow)
+				df.AppendRow(result, mergedRow)
 				matched = true
 			}
 		}
 		if !matched {
-			appendRowToDataFrame(result, rowB)
+			df.AppendRow(result, rowB)
 		}
 	}
 
 	return result, nil
 }
 
-func (df *DataFrame) OuterJoin(other *DataFrame, key string) (*DataFrame, error){
+func (df *DataFrame) OuterJoin(other *DataFrame, key string) (*DataFrame, error) {
 	err := checkExists(df, other, key)
 	if err != nil {
 		return nil, err
@@ -613,13 +601,23 @@ func (df *DataFrame) OuterJoin(other *DataFrame, key string) (*DataFrame, error)
 			rowB, _ := other.Row(j) // Ensure rowB is defined
 			if reflect.DeepEqual(rowA[key], rowB[key]) {
 				mergedRow := mergeRows(rowA, rowB)
-				appendRowToDataFrame(result, mergedRow)
+				df.AppendRow(result, mergedRow)
 				matchedRows[rowA[key]] = true
 				matched = true
 			}
 		}
 		if !matched {
-			appendRowToDataFrame(result, rowA)
+			df.AppendRow(result, rowA)
+		}
+
+	}
+
+	// Now append the rows that were not matched in the first for loop
+	// this is to also add the other dataframe into the result
+	for i := 0; i < other.Nrows(); i++ {
+		rowB, _ := other.Row(i)
+		if _, exists := matchedRows[rowB[key]]; !exists {
+			df.AppendRow(result, rowB)
 		}
 	}
 
@@ -638,7 +636,7 @@ func checkExists(df *DataFrame, other *DataFrame, key string) error {
 }
 
 func appendCols(df *DataFrame, other *DataFrame, result *DataFrame) error {
-// Add columns from both DataFrames to the result
+	// Add columns from both DataFrames to the result
 	for name := range df.Columns {
 		result.Columns[name] = &Column[any]{
 			Name: name,
@@ -674,6 +672,37 @@ func appendRowToDataFrame(df *DataFrame, row map[string]any) {
 	for name, value := range row {
 		df.Columns[name].Data = append(df.Columns[name].Data, value)
 	}
+}
+
+func (df *DataFrame) AppendRow(result *DataFrame, row map[string]any) error {
+
+	// Add new columns if they don't exist.
+	for name := range row {
+		if _, exists := result.Columns[name]; !exists {
+			newCol := NewColumn(name, make([]any, 0))
+			// add the new column to the result dataframe
+			err := result.AddColumn(ConvertToAnyColumn(newCol))
+			if err != nil {
+				return fmt.Errorf("error adding column: %v", err)
+			}
+		}
+	}
+
+	// In the new Columns, put nil placeholders
+	for name, col := range result.Columns {
+		if _, exists := row[name]; !exists {
+			// Append a nil value if the new row doesn't have data for this column.
+			col.Data = append(col.Data, nil)
+		}
+	}
+
+	// Append the new row's data.
+	for name, value := range row {
+		result.Columns[name].Data = append(result.Columns[name].Data, value)
+	}
+
+	return nil
+
 }
 
 // Column represents a typed column in the DataFrame
@@ -812,7 +841,7 @@ func (df *DataFrame) DropNa() error {
 
 	for i := 0; i < df.Nrows(); i++ {
 		row, err := df.Row(i)
-		if err != nil{
+		if err != nil {
 			return fmt.Errorf("failed to select row:%v, %v", err, err)
 		}
 		hasNa := false

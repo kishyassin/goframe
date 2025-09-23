@@ -166,7 +166,7 @@ func TestDataFrameRowOperations(t *testing.T) {
 
 	// Test AppendRow method
 	newRow := map[string]any{"name": "Diana", "age": 40}
-	err = df.AppendRow(newRow)
+	err = df.AppendRow(df, newRow)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
