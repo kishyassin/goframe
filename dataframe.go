@@ -667,13 +667,6 @@ func mergeRows(rowA, rowB map[string]any) map[string]any {
 	return merged
 }
 
-// appendRowToDataFrame appends a row to a DataFrame
-func appendRowToDataFrame(df *DataFrame, row map[string]any) {
-	for name, value := range row {
-		df.Columns[name].Data = append(df.Columns[name].Data, value)
-	}
-}
-
 func (df *DataFrame) AppendRow(result *DataFrame, row map[string]any) error {
 
 	// Add new columns if they don't exist.
