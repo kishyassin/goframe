@@ -98,7 +98,7 @@ func main() {
 	df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("value2", []string{"X", "Y", "Z"})))
 
 	// Perform an inner join
-	joined, err := df1.Join(df2, "id", "inner")
+	joined, err := df1.InnerJoin(df2, "id")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -274,7 +274,10 @@ func main() {
 - `NewDataFrame()`: Create a new DataFrame.
 - `AddColumn(column *Column[any])`: Add a column to the DataFrame.
 - `Row(index int)`: Retrieve a row by index.
-- `Join(other *DataFrame, key string, joinType string)`: Perform join operations.
+- `InnerJoin(other *DataFrame, key string)`: Perform inner join operation.
+- `OuterJoin(other *DataFrame, key string)`: Perform outer join operation.
+- `LeftJoin(other *DataFrame, key string)`: Perform left join operation.
+- `RightJoin(other *DataFrame, key string)`: Perform right join operation.
 - `Resample(column string, frequency string)`: Resample time series data.
 - `LinePlot(xCol, yCol, outputFile string)`: Generate a line plot.
 
