@@ -292,7 +292,8 @@ We welcome contributions from the community! If you'd like to contribute:
 
 1. Fork the repository.
 2. Create a new branch for your feature or bug fix.
-3. Submit a pull request with a clear description of your changes.
+3. After the implementation/fix, run ``` go test ./goframe_tests ``` and ensure all tests pass.
+4. Submit a pull request with a clear description of your changes.
 
 Please ensure your code adheres to the project's coding standards and includes tests for any new functionality.
 
