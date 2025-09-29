@@ -28,53 +28,6 @@ func NewDataFrame() *DataFrame {
 	}
 }
 
-// AddTypedColumn adds a typed column to the DataFrame.
-//
-// Parameters:
-//   - df: The DataFrame to which the column will be added.
-//   - col: The typed column to add.
-//
-// Returns:
-//   - error: An error if the operation fails.
-func AddTypedColumn[T any](df *DataFrame, col *Column[T]) error {
-	// Automatically convert the column to *Column[any]
-	anyCol := ConvertToAnyColumn(col)
-	return df.AddColumn(anyCol)
-}
-
-// AddColumn adds a generic column to the DataFrame.
-//
-// Parameters:
-//   - col: The generic column to add.
-//
-// Returns:
-//   - error: An error if the operation fails.
-func (df *DataFrame) AddColumn(col *Column[any]) error {
-	_, exists := df.Columns[col.Name]
-	if exists {
-		return fmt.Errorf("Column '%v' already exists", col.Name)
-	}
-
-	df.Columns[col.Name] = col
-	return nil
-}
-
-// DropColumn removes a column from the DataFrame.
-//
-// Parameters:
-//   - name: The name of the column to remove.
-//
-// Returns:
-//   - error: An error if the column does not exist.
-func (df *DataFrame) DropColumn(name string) error {
-	if _, exists := df.Columns[name]; !exists {
-		return fmt.Errorf("column '%s' does not exist", name)
-	}
-
-	delete(df.Columns, name)
-	return nil
-}
-
 // Nrows returns the number of rows in the DataFrame.
 //
 // Returns:
@@ -92,19 +45,6 @@ func (df *DataFrame) Nrows() int {
 //   - int: The number of columns in the DataFrame.
 func (df *DataFrame) Ncols() int {
 	return len(df.Columns)
-}
-
-// ColumnNames returns the names of all columns in the DataFrame.
-//
-// Returns:
-//   - []string: A sorted list of column names.
-func (df *DataFrame) ColumnNames() []string {
-	names := make([]string, 0, len(df.Columns))
-	for name := range df.Columns {
-		names = append(names, name)
-	}
-	sort.Strings(names) // Ensure consistent order
-	return names
 }
 
 // Select returns a column by name.
@@ -286,78 +226,6 @@ func (df *DataFrame) DropRow(i int) error {
 	return nil
 }
 
-// RenameColumn renames a column in the DataFrame
-func (df *DataFrame) RenameColumn(oldName, newName string) error {
-	col, exists := df.Columns[oldName]
-	if !exists {
-		return fmt.Errorf("column '%s' does not exist", oldName)
-	}
-	if _, exists := df.Columns[newName]; exists {
-		return fmt.Errorf("column '%s' already exists", newName)
-	}
-
-	col.Name = newName
-	df.Columns[newName] = col
-	delete(df.Columns, oldName)
-	return nil
-}
-
-// Mean calculates the mean of numeric values for each column in the DataFrame
-func (df *DataFrame) Mean() (map[string]float64, error) {
-	results := make(map[string]float64)
-	for name, col := range df.Columns {
-		series := &Series{Name: name, Data: col.Data}
-		mean, err := series.Mean()
-		if err != nil {
-			return nil, fmt.Errorf("error calculating mean for column '%s': %w", name, err)
-		}
-		results[name] = mean
-	}
-	return results, nil
-}
-
-// Sum calculates the sum of numeric values for each column in the DataFrame
-func (df *DataFrame) Sum() (map[string]float64, error) {
-	results := make(map[string]float64)
-	for name, col := range df.Columns {
-		series := &Series{Name: name, Data: col.Data}
-		sum, err := series.Sum()
-		if err != nil {
-			return nil, fmt.Errorf("error calculating sum for column '%s': %w", name, err)
-		}
-		results[name] = sum
-	}
-	return results, nil
-}
-
-// Min calculates the minimum value for each column in the DataFrame
-func (df *DataFrame) Min() (map[string]float64, error) {
-	results := make(map[string]float64)
-	for name, col := range df.Columns {
-		series := &Series{Name: name, Data: col.Data}
-		min, err := series.Min()
-		if err != nil {
-			return nil, fmt.Errorf("error calculating min for column '%s': %w", name, err)
-		}
-		results[name] = min
-	}
-	return results, nil
-}
-
-// Max calculates the maximum value for each column in the DataFrame
-func (df *DataFrame) Max() (map[string]float64, error) {
-	results := make(map[string]float64)
-	for name, col := range df.Columns {
-		series := &Series{Name: name, Data: col.Data}
-		max, err := series.Max()
-		if err != nil {
-			return nil, fmt.Errorf("error calculating max for column '%s': %w", name, err)
-		}
-		results[name] = max
-	}
-	return results, nil
-}
-
 func checkExists(df *DataFrame, other *DataFrame, key string) error {
 	if _, exists := df.Columns[key]; !exists {
 		return fmt.Errorf("key column '%s' does not exist in the first DataFrame", key)
@@ -432,11 +300,66 @@ func (df *DataFrame) AppendRow(result *DataFrame, row map[string]any) error {
 
 }
 
-// Column represents a typed column in the DataFrame
-// T is the type of the column data (e.g., int, float64, string, bool)
-type Column[T any] struct {
-	Name string
-	Data []T
+// ColumnNames returns the names of all columns in the DataFrame.
+//
+// Returns:
+//   - []string: A sorted list of column names.
+func (df *DataFrame) ColumnNames() []string {
+	names := make([]string, 0, len(df.Columns))
+	for name := range df.Columns {
+		names = append(names, name)
+	}
+	sort.Strings(names) // Ensure consistent order
+	return names
+}
+
+// RenameColumn renames a column in the DataFrame
+func (df *DataFrame) RenameColumn(oldName, newName string) error {
+	col, exists := df.Columns[oldName]
+	if !exists {
+		return fmt.Errorf("column '%s' does not exist", oldName)
+	}
+	if _, exists := df.Columns[newName]; exists {
+		return fmt.Errorf("column '%s' already exists", newName)
+	}
+
+	col.Name = newName
+	df.Columns[newName] = col
+	delete(df.Columns, oldName)
+	return nil
+}
+
+// AddColumn adds a generic column to the DataFrame.
+//
+// Parameters:
+//   - col: The generic column to add.
+//
+// Returns:
+//   - error: An error if the operation fails.
+func (df *DataFrame) AddColumn(col *Column[any]) error {
+	_, exists := df.Columns[col.Name]
+	if exists {
+		return fmt.Errorf("Column '%v' already exists", col.Name)
+	}
+
+	df.Columns[col.Name] = col
+	return nil
+}
+
+// DropColumn removes a column from the DataFrame.
+//
+// Parameters:
+//   - name: The name of the column to remove.
+//
+// Returns:
+//   - error: An error if the column does not exist.
+func (df *DataFrame) DropColumn(name string) error {
+	if _, exists := df.Columns[name]; !exists {
+		return fmt.Errorf("column '%s' does not exist", name)
+	}
+
+	delete(df.Columns, name)
+	return nil
 }
 
 // NewColumn creates a new typed column
@@ -444,31 +367,5 @@ func NewColumn[T any](name string, data []T) *Column[T] {
 	return &Column[T]{
 		Name: name,
 		Data: data,
-	}
-}
-
-// Len returns the length of the column
-func (c *Column[T]) Len() int {
-	return len(c.Data)
-}
-
-// At returns the value at the given index
-func (c *Column[T]) At(index int) (T, error) {
-	if index < 0 || index >= len(c.Data) {
-		var zero T
-		return zero, fmt.Errorf("index out of bounds")
-	}
-	return c.Data[index], nil
-}
-
-// ConvertToAnyColumn converts a typed column to a generic column of type `any`
-func ConvertToAnyColumn[T any](col *Column[T]) *Column[any] {
-	genericData := make([]any, len(col.Data))
-	for i, v := range col.Data {
-		genericData[i] = v
-	}
-	return &Column[any]{
-		Name: col.Name,
-		Data: genericData,
 	}
 }
