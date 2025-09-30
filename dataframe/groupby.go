@@ -79,27 +79,29 @@ func (gdf *GroupedDataFrame) Sum(colNames ...string) (*DataFrame, error) {
 	if gdf.Err != nil {
 		return nil, gdf.Err
 	}
-
 	resultDf := NewDataFrame()
+	groupKeys := []any{}
+	sumsPerCol := make(map[string][]float64)
 
-	for _, rows := range gdf.Groups {
-		if len(colNames) > 0 {
-			// user provided columns
-			for _, colName := range colNames {
-				sum := sumColumn(rows, colName)
+	// Build the column values first
+	for groupKey, rows := range gdf.Groups {
+		groupKeys = append(groupKeys, groupKey)
 
-				//create the column
-				newcol := NewColumn(colName, []float64{sum})
+		for _, colName := range colNames {
+			sum := sumColumn(rows, colName)
+			sumsPerCol[colName] = append(sumsPerCol[colName], sum)
+		}
+	}
 
-				err := AddTypedColumn(resultDf, newcol)
-				if err != nil {
-					return nil, fmt.Errorf("failed to add column '%s': %v", colName, err)
-				}
-			}
+	// Construct DataFrame
+	groupCol := NewColumn("GroupKey", groupKeys)
+	_ = AddTypedColumn(resultDf, groupCol)
 
-		} else {
-			// else if there is no colnames provided, we sum all numerical rows
-
+	for colName, values := range sumsPerCol {
+		newcol := NewColumn(colName, values)
+		err := AddTypedColumn(resultDf, newcol)
+		if err != nil {
+			return nil, fmt.Errorf("Error trying to add type column: %v", err)
 		}
 	}
 
@@ -112,10 +114,8 @@ func (gdf *GroupedDataFrame) Error() error {
 }
 
 /*
-
 The sumColumn is a helper function to help sum the specific column, this is done to separate
 code to make it more readable.
-
 */
 func sumColumn(rows []map[string]any, colName string) float64 {
 	sum := 0.0
