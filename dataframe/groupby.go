@@ -3,9 +3,10 @@ package goframe
 import "fmt"
 
 type GroupedDataFrame struct {
-	Groups map[any][]map[string]any
-	Key    string
-	Err    error
+	Groups   map[any][]map[string]any
+	KeyOrder []any // This is to preserve the order of the data
+	Key      string
+	Err      error
 }
 
 // The Groupby method is a powerful method used for data aggregation, it involves a DataFrame to be split into groups
@@ -22,11 +23,12 @@ func (df *DataFrame) Groupby(key any) *GroupedDataFrame {
 	groups := make(map[any][]map[string]any) // GroupKey: { row[key] : value} where key is the column name
 	var err error
 	keyName := ""
+	keyOrder := []any{}
 
 	switch key := key.(type) {
 	case string:
 		keyName = key
-		groups, err = groupByString(df, keyName, groups)
+		groups, keyOrder, err = groupByString(df, keyName, groups)
 		if err != nil {
 			return &GroupedDataFrame{Err: fmt.Errorf("unable to group by string: %v", err)}
 		}
@@ -43,25 +45,32 @@ func (df *DataFrame) Groupby(key any) *GroupedDataFrame {
 		return &GroupedDataFrame{Err: fmt.Errorf("unsupported groupby key type: %T", key)}
 	}
 
-	return &GroupedDataFrame{Groups: groups, Key: keyName, Err: nil}
+	return &GroupedDataFrame{Groups: groups, Key: keyName, KeyOrder: keyOrder, Err: nil}
 }
 
-func groupByString(df *DataFrame, colName string, groups map[any][]map[string]any) (map[any][]map[string]any, error) {
+func groupByString(df *DataFrame, colName string, groups map[any][]map[string]any) (map[any][]map[string]any, []any, error) {
 	_, exists := df.Columns[colName]
+	keys := []any{}
+
 	if !exists {
-		return nil, fmt.Errorf("Column '%s' does not exist", colName)
+		return nil, nil, fmt.Errorf("Column '%s' does not exist", colName)
 	}
 
 	for i := 0; i < df.Nrows(); i++ {
 		row, err := df.Row(i) //access each row in the dataframe
 		if err != nil {
-			return groups, fmt.Errorf("unable to access row %v in the dataframe: %v", i, err)
+			return groups, nil, fmt.Errorf("unable to access row %v in the dataframe: %v", i, err)
 		}
-		groupKey := row[colName]                         // access the column name's value, it is called groupkey because it is the identifier of that row
+		groupKey := row[colName] // access the column name's value, it is called groupkey because it is the identifier of that row
+		_, ok := groups[groupKey]
+		if !ok {
+			// if the groupkey doesnt exist in groups, means it is a new group therefore we record the order
+			keys = append(keys, groupKey)
+		}
 		groups[groupKey] = append(groups[groupKey], row) // append the row to the map of maps
 	}
 
-	return groups, nil
+	return groups, keys, nil
 
 }
 
@@ -80,11 +89,13 @@ func (gdf *GroupedDataFrame) Sum(colNames ...string) (*DataFrame, error) {
 		return nil, gdf.Err
 	}
 	resultDf := NewDataFrame()
-	groupKeys := []any{}
+
+	groupKeys := make([]any, 0, len(gdf.KeyOrder))
 	sumsPerCol := make(map[string][]float64)
 
 	// Build the column values first
-	for groupKey, rows := range gdf.Groups {
+	for _, groupKey := range gdf.KeyOrder {
+		rows := gdf.Groups[groupKey]
 		groupKeys = append(groupKeys, groupKey)
 
 		for _, colName := range colNames {
@@ -93,11 +104,14 @@ func (gdf *GroupedDataFrame) Sum(colNames ...string) (*DataFrame, error) {
 		}
 	}
 
-	// Construct DataFrame
+	// Build GroupKey column
 	groupCol := NewColumn("GroupKey", groupKeys)
+
+	// Construct DataFrame
 	_ = AddTypedColumn(resultDf, groupCol)
 
-	for colName, values := range sumsPerCol {
+	for _, colName := range colNames {
+		values := sumsPerCol[colName]
 		newcol := NewColumn(colName, values)
 		err := AddTypedColumn(resultDf, newcol)
 		if err != nil {
