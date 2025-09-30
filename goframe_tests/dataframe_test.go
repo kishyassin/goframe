@@ -730,10 +730,6 @@ func TestGroupBy(t *testing.T) {
 		t.Fatalf("An error occured: %v", err)
 	}
 
-	t.Logf("The grouped data received is: ")
-	t.Log(grouped)
-	t.Logf("The grouped.Groups data received is: ")
-	t.Log(grouped.Groups)
 	//create the expected data
 	groups := map[any][]map[string]any{
 		"HR": {
@@ -760,4 +756,77 @@ func TestGroupBy(t *testing.T) {
 	}
 
 	// The subtests will be testing on the aggregate methods
+	t.Run("Sum", func(t *testing.T) {
+		sumDf, err := grouped.Sum("score")
+		if err != nil {
+			t.Fatalf("Error trying to sum groups: %v", err)
+		}
+
+		// check if sumDf is what we expected
+		expectedDataframe := goframe.NewDataFrame()
+		groupKeys := []any{"IT", "HR"}
+
+		groupKeyColumn := goframe.NewColumn("GroupKey", groupKeys)
+		expectedDataframe.AddColumn(groupKeyColumn)
+
+		scores := []any{1200.0, 300.0}
+		scoreColumn := goframe.NewColumn("score", scores)
+		expectedDataframe.AddColumn(scoreColumn)
+
+		match := dataFramesEqual(expectedDataframe, sumDf)
+		if !match {
+			t.Logf("expected data: %v", expectedDataframe.String())
+			t.Logf("data obtained: %v", sumDf)
+			t.Errorf("Summed data did not match expected results. \nExpected: %#v \nGot: %#v", expectedDataframe, sumDf)
+		}
+	})
+}
+
+
+/*
+The dataFramesEqual function checks if the data values are numerically equal in 2 different dataframes by converting both
+datatypes into float64 before comparing them.
+
+Parameters:
+  - dataframeA: The first dataframe to be compared to.
+  - dataframeB: The second dataframe to be compared with.
+
+Returns:
+  - Boolean: Returns true if it numerically matches, else false.
+*/
+func dataFramesEqual(a, b *goframe.DataFrame) bool {
+
+	if len(a.Columns) != len(b.Columns) {
+		return false
+	}
+
+	for name, colA := range a.Columns {
+		colB, ok := b.Columns[name]
+		if !ok {
+			return false
+		}
+
+		if len(colA.Data) != len(colB.Data) {
+			return false
+		}
+
+		for i := range colA.Data {
+			aVal := colA.Data[i]
+			bVal := colB.Data[i]
+
+			aFLoat, aOk := aVal.(float64)
+			bFLoat, bOk := bVal.(float64)
+			if aOk && bOk {
+				if aFLoat != bFLoat {
+					return false
+				}
+				continue
+			}
+
+			if !reflect.DeepEqual(aVal, bVal) {
+				return false
+			}
+		}
+	}
+	return true
 }
