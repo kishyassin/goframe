@@ -3,9 +3,9 @@ package goframe
 import "fmt"
 
 type GroupedDataFrame struct {
-	Groups	map[any][]map[string]any
-	Key    	string
-	Err		error
+	Groups map[any][]map[string]any
+	Key    string
+	Err    error
 }
 
 // The Groupby method is a powerful method used for data aggregation, it involves a DataFrame to be split into groups
@@ -18,7 +18,7 @@ type GroupedDataFrame struct {
 //   - *DataFrame: The grouped DataFrame, returns empty dataframe if error.
 //   - error: An error if the data cannot be grouped.
 
-func (df *DataFrame) Groupby(key any) (*GroupedDataFrame) {
+func (df *DataFrame) Groupby(key any) *GroupedDataFrame {
 	groups := make(map[any][]map[string]any) // GroupKey: { row[key] : value} where key is the column name
 	var err error
 	keyName := ""
@@ -76,7 +76,7 @@ func groupByString(df *DataFrame, colName string, groups map[any][]map[string]an
 //   - error: An error if the data cannot be grouped.
 
 func (gdf *GroupedDataFrame) Sum(colNames ...string) (*DataFrame, error) {
-	if gdf.Err != nil{
+	if gdf.Err != nil {
 		return nil, gdf.Err
 	}
 
@@ -86,20 +86,8 @@ func (gdf *GroupedDataFrame) Sum(colNames ...string) (*DataFrame, error) {
 		if len(colNames) > 0 {
 			// user provided columns
 			for _, colName := range colNames {
-				sum := 0.0
-				for _, rowData := range rows {
-					val, ok := rowData[colName]
-					if ok {
-						switch v := val.(type) {
-						case int:
-							sum += float64(v)
-						case float64:
-							sum += v
-						case float32:
-							sum += float64(v)
-						}
-					}
-				}
+				sum := sumColumn(rows, colName)
+
 				//create the column
 				newcol := NewColumn(colName, []float64{sum})
 
@@ -109,6 +97,9 @@ func (gdf *GroupedDataFrame) Sum(colNames ...string) (*DataFrame, error) {
 				}
 			}
 
+		} else {
+			// else if there is no colnames provided, we sum all numerical rows
+
 		}
 	}
 
@@ -116,6 +107,31 @@ func (gdf *GroupedDataFrame) Sum(colNames ...string) (*DataFrame, error) {
 
 }
 
-func (gdf *GroupedDataFrame) Error() error{
+func (gdf *GroupedDataFrame) Error() error {
 	return gdf.Err
+}
+
+/*
+
+The sumColumn is a helper function to help sum the specific column, this is done to separate
+code to make it more readable.
+
+*/
+func sumColumn(rows []map[string]any, colName string) float64 {
+	sum := 0.0
+	for _, rowData := range rows {
+		val, ok := rowData[colName]
+		if ok {
+			switch v := val.(type) {
+			case int:
+				sum += float64(v)
+			case float64:
+				sum += v
+			case float32:
+				sum += float64(v)
+			}
+		}
+	}
+
+	return sum
 }
