@@ -782,6 +782,51 @@ func TestGroupBy(t *testing.T) {
 	})
 }
 
+// Test sum on a handcrafted GroupedDataFrame (no GroupBy)
+func TestSum(t *testing.T) {
+
+	groups := map[any][]map[string]any{
+		"HR": {
+			{"dept": "HR", "score": 300},
+		},
+		"IT": {
+			{"dept": "IT", "score": 500},
+			{"dept": "IT", "score": 700},
+		},
+	}
+
+	keyOrder := []any{
+		"IT", "HR",
+	}
+
+	data := goframe.GroupedDataFrame{
+		Groups: groups,
+		KeyOrder: keyOrder,
+		Key: "IT",
+	}
+
+	sumDf, err := data.Sum("score")
+	if err != nil{
+		t.Fatalf("Error trying to sum data: %v", err)
+	}
+
+	expectedDataframe := goframe.NewDataFrame()
+		groupKeys := []any{"IT", "HR"}
+
+		groupKeyColumn := goframe.NewColumn("GroupKey", groupKeys)
+		expectedDataframe.AddColumn(groupKeyColumn)
+
+		scores := []any{1200.0, 300.0}
+		scoreColumn := goframe.NewColumn("score", scores)
+		expectedDataframe.AddColumn(scoreColumn)
+
+		match := dataFramesEqual(expectedDataframe, sumDf)
+		if !match {
+			t.Logf("expected data: %v", expectedDataframe.String())
+			t.Logf("data obtained: %v", sumDf)
+			t.Errorf("Summed data did not match expected results. \nExpected: %#v \nGot: %#v", expectedDataframe, sumDf)
+		}
+}
 
 /*
 The dataFramesEqual function checks if the data values are numerically equal in 2 different dataframes by converting both
