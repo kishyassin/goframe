@@ -243,10 +243,6 @@ func FromCSVReader(reader io.Reader) (*DataFrame, error) {
 			return nil, fmt.Errorf("error reading row: %w", err)
 		}
 
-		if len(record) != len(header) {
-			return nil, fmt.Errorf("row has %d columns, expected %d", len(record), len(header))
-		}
-
 		// Add data to each column, trying to parse as number if possible
 		for i, value := range record {
 			col := df.Columns[header[i]]
