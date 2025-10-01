@@ -94,39 +94,105 @@ func TestDataFrameAddDropColumn(t *testing.T) {
 }
 
 func TestFromCSVReader(t *testing.T) {
-	csvData := `name,age,salary
-Alice,25,50000
-Bob,30,60000
-Charlie,35,70000`
-	reader := strings.NewReader(csvData)
-	df, err := goframe.FromCSVReader(reader)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	cases := []struct {
+	input        string
+	wantError    string
+	wantColumns  []string
+	wantData     map[string][]any
 
-	// Validate column names
-	expectedColumns := []string{"name", "age", "salary"}
-	sort.Strings(expectedColumns) // Ensure consistent order
-	actualColumns := df.ColumnNames()
-	t.Logf("Actual column names: %v", actualColumns)
-	if !reflect.DeepEqual(actualColumns, expectedColumns) {
-		t.Errorf("Expected columns %v, got %v", expectedColumns, actualColumns)
+	}{
+		{
+			input: `product,quantity,discount
+					Laptop,3,
+					Mouse,10,
+					Keyboard,5,`,
+			wantColumns: []string{"quantity", "product", "discount"},
+			wantData: map[string][]any{
+				"quantity": {3.0, 10.0, 5.0},
+				"product":  {"Laptop", "Mouse", "Keyboard"},
+				"discount": {"", "", ""},
+			},
+		},
+		{
+			input: `player,level,points
+					Neo,7,1200
+					Trinity,12,3400
+					Morpheus,20,5600`,
+			wantColumns: []string{"level", "player", "points"},
+			wantData: map[string][]any{
+				"level":  {7.0, 12.0, 20.0},
+				"player": {"Neo", "Trinity", "Morpheus"},
+				"points": {1200.0, 3400.0, 5600.0},
+			},	
+		},
+		{
+			input: `city,temp,humidity
+					Berlin,18,
+					Paris,,55
+					,21,60`,
+			wantColumns: []string{"city", "humidity", "temp"},
+			wantData: map[string][]any{
+				"temp":     {18.0, "", 21.0},
+				"city":     {"Berlin", "Paris", ""},
+				"humidity": {"", 55.0, 60.0},
+			},
+		},
+		{
+			input:     ``,
+			wantError: "error reading header",
+			wantColumns: nil,
+			wantData:    nil,
+		},
+		{
+			input: `name,age
+					"Alice,25,
+					Bob,30`,
+			wantError:  "error reading row",
+			wantColumns: nil,
+			wantData:    nil,
+		},
+		{
+			input: `name,age,salary
+					Alice,25,50000,1
+					Bob,30`,
+			wantError:  "error reading row",
+			wantColumns: nil,
+			wantData:    nil,
+		},
 	}
+	
+	for _, tc := range cases{
+		reader := strings.NewReader(tc.input)
+		df, err := goframe.FromCSVReader(reader)
+		if tc.wantError != ""{
+			if err == nil {
+				t.Fatalf("expected to get an error, got success")
+			}
+			if !strings.Contains(err.Error(), tc.wantError) {
+				t.Fatalf("Unexpected error! The error returned must contain text %q, got %q", tc.wantError, err.Error())
+			}
 
-	// Validate column types and data
-	nameCol, _ := df.Select("name")
-	if nameCol.Data[0] != "Alice" {
-		t.Errorf("Expected 'Alice' in name column, got %v", nameCol.Data[0])
-	}
+			t.Logf("Success! Expected error %s, got %s ", tc.wantError, err.Error())
+			continue
+		}
 
-	ageCol, _ := df.Select("age")
-	if ageCol.Data[0] != 25.0 {
-		t.Errorf("Expected 25 in age column, got %v", ageCol.Data[0])
-	}
+		// Validate column names
+		cols := df.ColumnNames()
+		t.Logf("Actual column names: %v", cols)
 
-	salaryCol, _ := df.Select("salary")
-	if salaryCol.Data[0] != 50000.0 {
-		t.Errorf("Expected 50000 in salary column, got %v", salaryCol.Data[0])
+		sort.Strings(tc.wantColumns)
+
+		if !reflect.DeepEqual(cols, tc.wantColumns) {
+			t.Errorf("Expected columns %v, got %v", tc.wantColumns, cols)
+		}
+
+		// Validate column types and data
+		for _, colName := range tc.wantColumns{
+			col, _ := df.Select(colName)
+			if !reflect.DeepEqual(col.Data, tc.wantData[colName]) {
+				t.Errorf("Expected column %v, got %v", tc.wantData[colName], col.Data)
+			}
+		}
 	}
 }
 
