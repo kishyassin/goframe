@@ -246,3 +246,42 @@ func averageColumn(rows []map[string]any, colName string) float64 {
 
 	return sum / count
 }
+
+func (gdf *GroupedDataFrame) Count(colNames ...string) (*DataFrame, error) {
+	if gdf.Err != nil {
+		return nil, gdf.Err
+	}
+
+	resultDf := NewDataFrame()
+
+	groupKeys := make([]any, 0, len(gdf.KeyOrder))
+	countPerCol := make(map[string][]int)
+
+	// Build the column values first
+	for _, groupKey := range gdf.KeyOrder {
+		rows := gdf.Groups[groupKey]
+		groupKeys = append(groupKeys, groupKey)
+
+		for _, colName := range colNames {
+			count := len(rows)
+			countPerCol[colName] = append(countPerCol[colName], count)
+		}
+	}
+
+	// Build GroupKey column
+	groupCol := NewColumn("GroupKey", groupKeys)
+
+	// Construct DataFrame
+	_ = AddTypedColumn(resultDf, groupCol)
+
+	for _, colName := range colNames {
+		values := countPerCol[colName]
+		newcol := NewColumn(colName, values)
+		err := AddTypedColumn(resultDf, newcol)
+		if err != nil {
+			return nil, fmt.Errorf("Error trying to add type column: %v", err)
+		}
+	}
+
+	return resultDf, gdf.Err
+}
