@@ -92,6 +92,9 @@ func (gdf *GroupedDataFrame) Sum(colNames ...string) (*DataFrame, error) {
 
 	groupKeys := make([]any, 0, len(gdf.KeyOrder))
 	sumsPerCol := make(map[string][]float64)
+	if len(colNames) == 0 {
+		colNames = gdf.GetAllColumnNames()
+	}
 
 	// Build the column values first
 	for _, groupKey := range gdf.KeyOrder {
@@ -102,6 +105,7 @@ func (gdf *GroupedDataFrame) Sum(colNames ...string) (*DataFrame, error) {
 			sum := sumColumn(rows, colName)
 			sumsPerCol[colName] = append(sumsPerCol[colName], sum)
 		}
+
 	}
 
 	// Build GroupKey column
@@ -148,4 +152,28 @@ func sumColumn(rows []map[string]any, colName string) float64 {
 	}
 
 	return sum
+}
+
+func (gdf *GroupedDataFrame) GetAllColumnNames() []string {
+	columnNames := []string{}
+	seen := map[string]string{}
+
+	for _, groupVal := range gdf.Groups {
+		for _, rowValue := range groupVal {
+			for key := range rowValue {
+				if key == gdf.Key {
+					continue
+				}
+
+				// if the column already exist in the slice
+				_, exists := seen[key]
+				if exists {
+					continue
+				}
+				columnNames = append(columnNames, key)
+				seen[key] = ""
+			}
+		}
+	}
+	return columnNames
 }

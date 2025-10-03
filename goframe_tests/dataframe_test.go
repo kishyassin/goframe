@@ -95,11 +95,10 @@ func TestDataFrameAddDropColumn(t *testing.T) {
 
 func TestFromCSVReader(t *testing.T) {
 	cases := []struct {
-	input        string
-	wantError    string
-	wantColumns  []string
-	wantData     map[string][]any
-
+		input       string
+		wantError   string
+		wantColumns []string
+		wantData    map[string][]any
 	}{
 		{
 			input: `product,quantity,discount
@@ -123,7 +122,7 @@ func TestFromCSVReader(t *testing.T) {
 				"level":  {7.0, 12.0, 20.0},
 				"player": {"Neo", "Trinity", "Morpheus"},
 				"points": {1200.0, 3400.0, 5600.0},
-			},	
+			},
 		},
 		{
 			input: `city,temp,humidity
@@ -138,8 +137,8 @@ func TestFromCSVReader(t *testing.T) {
 			},
 		},
 		{
-			input:     ``,
-			wantError: "error reading header",
+			input:       ``,
+			wantError:   "error reading header",
 			wantColumns: nil,
 			wantData:    nil,
 		},
@@ -147,7 +146,7 @@ func TestFromCSVReader(t *testing.T) {
 			input: `name,age
 					"Alice,25,
 					Bob,30`,
-			wantError:  "error reading row",
+			wantError:   "error reading row",
 			wantColumns: nil,
 			wantData:    nil,
 		},
@@ -155,16 +154,16 @@ func TestFromCSVReader(t *testing.T) {
 			input: `name,age,salary
 					Alice,25,50000,1
 					Bob,30`,
-			wantError:  "error reading row",
+			wantError:   "error reading row",
 			wantColumns: nil,
 			wantData:    nil,
 		},
 	}
-	
-	for _, tc := range cases{
+
+	for _, tc := range cases {
 		reader := strings.NewReader(tc.input)
 		df, err := goframe.FromCSVReader(reader)
-		if tc.wantError != ""{
+		if tc.wantError != "" {
 			if err == nil {
 				t.Fatalf("expected to get an error, got success")
 			}
@@ -187,7 +186,7 @@ func TestFromCSVReader(t *testing.T) {
 		}
 
 		// Validate column types and data
-		for _, colName := range tc.wantColumns{
+		for _, colName := range tc.wantColumns {
 			col, _ := df.Select(colName)
 			if !reflect.DeepEqual(col.Data, tc.wantData[colName]) {
 				t.Errorf("Expected column %v, got %v", tc.wantData[colName], col.Data)
@@ -780,6 +779,51 @@ func TestGroupBy(t *testing.T) {
 			t.Errorf("Summed data did not match expected results. \nExpected: %#v \nGot: %#v", expectedDataframe, sumDf)
 		}
 	})
+
+	t.Run("SumWithoutArgs", func(t *testing.T) {
+		df2 := goframe.NewDataFrame()
+
+		df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("dept", []string{"IT", "HR", "IT"})))
+		df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("score", []int{500, 300, 700})))
+		df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("salary", []int{100, 200, 300})))
+
+		keyName := "dept"
+
+		grouped := df2.Groupby(keyName)
+		err := grouped.Error()
+		if err != nil {
+			t.Fatalf("An error occured: %v", err)
+		}
+
+		sumDf, err := grouped.Sum()
+		if err != nil {
+			t.Fatalf("Error trying to sum groups: %v", err)
+		}
+
+		// check if sumDf is what we expected
+		expectedDataframe := goframe.NewDataFrame()
+		groupKeys := []any{"IT", "HR"}
+
+		groupKeyColumn := goframe.NewColumn("GroupKey", groupKeys)
+		expectedDataframe.AddColumn(groupKeyColumn)
+
+		scores := []any{1200.0, 300.0}
+		salary := []any{400.0, 200.0}
+
+		scoreColumn := goframe.NewColumn("score", scores)
+		salaryColumn := goframe.NewColumn("salary", salary)
+
+		expectedDataframe.AddColumn(scoreColumn)
+		expectedDataframe.AddColumn(salaryColumn)
+
+		match := dataFramesEqual(expectedDataframe, sumDf)
+		if !match {
+			t.Logf("expected data: %v", expectedDataframe.String())
+			t.Logf("data obtained: %v", sumDf)
+			t.Errorf("Summed data did not match expected results. \nExpected: %#v \nGot: %#v", expectedDataframe, sumDf)
+		}
+	})
+
 }
 
 // Test sum on a handcrafted GroupedDataFrame (no GroupBy)
@@ -800,32 +844,32 @@ func TestSum(t *testing.T) {
 	}
 
 	data := goframe.GroupedDataFrame{
-		Groups: groups,
+		Groups:   groups,
 		KeyOrder: keyOrder,
-		Key: "IT",
+		Key:      "IT",
 	}
 
 	sumDf, err := data.Sum("score")
-	if err != nil{
+	if err != nil {
 		t.Fatalf("Error trying to sum data: %v", err)
 	}
 
 	expectedDataframe := goframe.NewDataFrame()
-		groupKeys := []any{"IT", "HR"}
+	groupKeys := []any{"IT", "HR"}
 
-		groupKeyColumn := goframe.NewColumn("GroupKey", groupKeys)
-		expectedDataframe.AddColumn(groupKeyColumn)
+	groupKeyColumn := goframe.NewColumn("GroupKey", groupKeys)
+	expectedDataframe.AddColumn(groupKeyColumn)
 
-		scores := []any{1200.0, 300.0}
-		scoreColumn := goframe.NewColumn("score", scores)
-		expectedDataframe.AddColumn(scoreColumn)
+	scores := []any{1200.0, 300.0}
+	scoreColumn := goframe.NewColumn("score", scores)
+	expectedDataframe.AddColumn(scoreColumn)
 
-		match := dataFramesEqual(expectedDataframe, sumDf)
-		if !match {
-			t.Logf("expected data: %v", expectedDataframe.String())
-			t.Logf("data obtained: %v", sumDf)
-			t.Errorf("Summed data did not match expected results. \nExpected: %#v \nGot: %#v", expectedDataframe, sumDf)
-		}
+	match := dataFramesEqual(expectedDataframe, sumDf)
+	if !match {
+		t.Logf("expected data: %v", expectedDataframe.String())
+		t.Logf("data obtained: %v", sumDf)
+		t.Errorf("Summed data did not match expected results. \nExpected: %#v \nGot: %#v", expectedDataframe, sumDf)
+	}
 }
 
 /*
