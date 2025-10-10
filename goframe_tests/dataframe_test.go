@@ -723,7 +723,7 @@ func TestGroupBy(t *testing.T) {
 	keyName := "dept"
 	var errors error
 
-	grouped := df.Groupby("dept")
+	grouped := df.Groupby(keyName)
 	err := grouped.Error()
 	if err != nil {
 		t.Fatalf("An error occured: %v", err)
@@ -800,7 +800,6 @@ func TestGroupBy(t *testing.T) {
 			t.Fatalf("Error trying to sum groups: %v", err)
 		}
 
-		// check if sumDf is what we expected
 		expectedDataframe := goframe.NewDataFrame()
 		groupKeys := []any{"IT", "HR"}
 
@@ -824,6 +823,54 @@ func TestGroupBy(t *testing.T) {
 		}
 	})
 
+	t.Run("Mean", func(t *testing.T) {
+		sumDf, err := grouped.Mean("score")
+		if err != nil {
+			t.Fatalf("Error trying to average groups: %v", err)
+		}
+
+		expectedDataframe := goframe.NewDataFrame()
+		groupKeys := []any{"IT", "HR"}
+
+		groupKeyColumn := goframe.NewColumn("GroupKey", groupKeys)
+		expectedDataframe.AddColumn(groupKeyColumn)
+
+		scores := []any{600.0, 300.0}
+		scoreColumn := goframe.NewColumn("score", scores)
+		expectedDataframe.AddColumn(scoreColumn)
+
+		match := dataFramesEqual(expectedDataframe, sumDf)
+		if !match {
+			t.Logf("expected data: %v", expectedDataframe.String())
+			t.Logf("data obtained: %v", sumDf)
+			t.Errorf("Averaged data did not match expected results. \nExpected: %#v \nGot: %#v", expectedDataframe, sumDf)
+		}
+	})
+
+	t.Run("Count", func(t *testing.T) {
+		sumDf, err := grouped.Count("score")
+		if err != nil {
+			t.Fatalf("Error trying to count groups: %v", err)
+		}
+
+		// check if sumDf is what we expected
+		expectedDataframe := goframe.NewDataFrame()
+		groupKeys := []any{"IT", "HR"}
+
+		groupKeyColumn := goframe.NewColumn("GroupKey", groupKeys)
+		expectedDataframe.AddColumn(groupKeyColumn)
+
+		scores := []any{2, 1}
+		scoreColumn := goframe.NewColumn("score", scores)
+		expectedDataframe.AddColumn(scoreColumn)
+
+		match := dataFramesEqual(expectedDataframe, sumDf)
+		if !match {
+			t.Logf("expected data: %v", expectedDataframe.String())
+			t.Logf("data obtained: %v", sumDf)
+			t.Errorf("Averaged data did not match expected results. \nExpected: %#v \nGot: %#v", expectedDataframe, sumDf)
+		}
+	})
 }
 
 // Test sum on a handcrafted GroupedDataFrame (no GroupBy)
