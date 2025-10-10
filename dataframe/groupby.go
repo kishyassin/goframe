@@ -187,6 +187,9 @@ func (gdf *GroupedDataFrame) Mean(colNames ...string) (*DataFrame, error) {
 
 	groupKeys := make([]any, 0, len(gdf.KeyOrder))
 	meansPerCol := make(map[string][]float64)
+	if len(colNames) == 0 {
+		colNames = gdf.GetAllColumnNames()
+	}
 
 	// Build the column values first
 	for _, groupKey := range gdf.KeyOrder {
