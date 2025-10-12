@@ -872,6 +872,40 @@ func TestSum(t *testing.T) {
 	}
 }
 
+func TestMultiSelect(t *testing.T) {
+	df := goframe.NewDataFrame()
+
+	col1 := goframe.ConvertToAnyColumn(goframe.NewColumn("dept", []string{"IT", "HR", "IT"}))
+	col2 := goframe.ConvertToAnyColumn(goframe.NewColumn("score", []int{500, 300, 700}))
+	col3 := goframe.ConvertToAnyColumn(goframe.NewColumn("salary", []int{100, 200, 300}))
+
+	df.AddColumn(col1)
+	df.AddColumn(col2)
+	df.AddColumn(col3)
+
+	expectedDataframe := goframe.NewDataFrame()
+	expectedDataframe.AddColumn(col1)
+	expectedDataframe.AddColumn(col2)
+
+	multiDf, err := df.MultiSelect("dept", "score")
+	if err != nil {
+		t.Errorf("An error occured trying to MultiSelect columns: %v", err)
+	}
+
+	match := dataFramesEqual(multiDf, expectedDataframe)
+	if !match {
+		t.Errorf("MultiSelect data did not match expected results: \nExpected: %#v \nGot: %#v", expectedDataframe, multiDf)
+	}
+
+	emptyDf, err := df.MultiSelect()
+	expectedDataframe2 := goframe.NewDataFrame()
+	match2 := dataFramesEqual(emptyDf, expectedDataframe2)
+	if !match2 {
+		t.Errorf("MultiSelect data did not match expected results: \nExpected: %#v \nGot: %#v", expectedDataframe, multiDf)
+	}
+
+}
+
 /*
 The dataFramesEqual function checks if the data values are numerically equal in 2 different dataframes by converting both
 datatypes into float64 before comparing them.
