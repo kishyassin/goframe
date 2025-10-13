@@ -63,6 +63,36 @@ func (df *DataFrame) Select(name string) (*Column[any], error) {
 	return col, nil
 }
 
+// MultiSelect returns a dataframe of the selected columns.
+//
+// Parameters:
+//   - name: The name of the column(s) to select.
+//
+// Returns:
+//   - *DataFrame: The DataFrame struct containing the selected columns.
+//   - error: An error if the column(s) does not exist.
+func (df *DataFrame) MultiSelect(name ...string) (*DataFrame, error) {
+	newDf := DataFrame{}
+	newDf.Columns = make(map[string]*Column[any])
+
+	if len(name) < 1 {
+		return &newDf, fmt.Errorf("Please enter 1 or more column name(s)")
+	}
+
+	for _, name := range name {
+
+		col, exists := df.Columns[name]
+
+		if !exists {
+			return nil, fmt.Errorf("column '%s' does not exist", name)
+		}
+
+		AddTypedColumn(&newDf, col)
+	}
+
+	return &newDf, nil
+}
+
 // Row returns a row by index.
 //
 // Parameters:
