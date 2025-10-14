@@ -12,6 +12,7 @@ goframe is a Go package inspired by Python's pandas, designed for data manipulat
 - Statistical aggregations like `Mean`, `Sum`, `Min`, and `Max`.
 - **Join operations**: Perform `inner`, `left`, `right`, and `outer` joins between DataFrames.
 - **Row operations**: Access rows (`Row`), retrieve subsets (`Head`, `Tail`), append rows (`AppendRow`), and remove rows (`DropRow`).
+- **Multiple Column Selection**: Select multiple columns using the `MultiSelect` method.
 - **Column renaming**: Rename columns using the `RenameColumn` method.
 - **CSV export**: Save DataFrames to CSV files using `ToCSV` and `ToCSVWriter`.
 - **Time Series Support**: Add datetime indexing, resampling, and shifting for time series data.
@@ -139,7 +140,20 @@ func main() {
 	fmt.Println("After dropping a row:", df)
 }
 ```
+### Multiple Column Selection
+```go
+func main() {
+	df := goframe.NewDataFrame()
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("salary", []int{100, 200, 300})))
 
+	selectedDf, err := df.MultiSelect("name", "salary")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("The DataFrame with selected columns: ", selectedDf.String())
+}
+```
 ### Renaming Columns
 
 ```go
@@ -155,7 +169,7 @@ import (
 func main() {
 	df := goframe.NewDataFrame()
 	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"})))
-	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("age", []int{25, 30, 35}))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("age", []int{25, 30, 35})))
 
 	err := df.RenameColumn("name", "full_name")
 	if err != nil {
