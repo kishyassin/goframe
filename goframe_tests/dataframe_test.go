@@ -723,7 +723,7 @@ func TestGroupBy(t *testing.T) {
 	keyName := "dept"
 	var errors error
 
-	grouped := df.Groupby("dept")
+	grouped := df.Groupby(keyName)
 	err := grouped.Error()
 	if err != nil {
 		t.Fatalf("An error occured: %v", err)
@@ -840,7 +840,6 @@ func TestGroupBy(t *testing.T) {
 			t.Fatalf("Error trying to sum groups: %v", err)
 		}
 
-		// check if sumDf is what we expected
 		expectedDataframe := goframe.NewDataFrame()
 		groupKeys := []any{"IT", "HR"}
 
@@ -864,6 +863,54 @@ func TestGroupBy(t *testing.T) {
 		}
 	})
 
+	t.Run("Mean", func(t *testing.T) {
+		sumDf, err := grouped.Mean("score")
+		if err != nil {
+			t.Fatalf("Error trying to average groups: %v", err)
+		}
+
+		expectedDataframe := goframe.NewDataFrame()
+		groupKeys := []any{"IT", "HR"}
+
+		groupKeyColumn := goframe.NewColumn("GroupKey", groupKeys)
+		expectedDataframe.AddColumn(groupKeyColumn)
+
+		scores := []any{600.0, 300.0}
+		scoreColumn := goframe.NewColumn("score", scores)
+		expectedDataframe.AddColumn(scoreColumn)
+
+		match := dataFramesEqual(expectedDataframe, sumDf)
+		if !match {
+			t.Logf("expected data: %v", expectedDataframe.String())
+			t.Logf("data obtained: %v", sumDf)
+			t.Errorf("Averaged data did not match expected results. \nExpected: %#v \nGot: %#v", expectedDataframe, sumDf)
+		}
+	})
+
+	t.Run("Count", func(t *testing.T) {
+		sumDf, err := grouped.Count("score")
+		if err != nil {
+			t.Fatalf("Error trying to count groups: %v", err)
+		}
+
+		// check if sumDf is what we expected
+		expectedDataframe := goframe.NewDataFrame()
+		groupKeys := []any{"IT", "HR"}
+
+		groupKeyColumn := goframe.NewColumn("GroupKey", groupKeys)
+		expectedDataframe.AddColumn(groupKeyColumn)
+
+		scores := []any{2, 1}
+		scoreColumn := goframe.NewColumn("score", scores)
+		expectedDataframe.AddColumn(scoreColumn)
+
+		match := dataFramesEqual(expectedDataframe, sumDf)
+		if !match {
+			t.Logf("expected data: %v", expectedDataframe.String())
+			t.Logf("data obtained: %v", sumDf)
+			t.Errorf("Averaged data did not match expected results. \nExpected: %#v \nGot: %#v", expectedDataframe, sumDf)
+		}
+	})
 }
 
 // Test sum on a handcrafted GroupedDataFrame (no GroupBy)
@@ -910,6 +957,40 @@ func TestSum(t *testing.T) {
 		t.Logf("data obtained: %v", sumDf)
 		t.Errorf("Summed data did not match expected results. \nExpected: %#v \nGot: %#v", expectedDataframe, sumDf)
 	}
+}
+
+func TestMultiSelect(t *testing.T) {
+	df := goframe.NewDataFrame()
+
+	col1 := goframe.ConvertToAnyColumn(goframe.NewColumn("dept", []string{"IT", "HR", "IT"}))
+	col2 := goframe.ConvertToAnyColumn(goframe.NewColumn("score", []int{500, 300, 700}))
+	col3 := goframe.ConvertToAnyColumn(goframe.NewColumn("salary", []int{100, 200, 300}))
+
+	df.AddColumn(col1)
+	df.AddColumn(col2)
+	df.AddColumn(col3)
+
+	expectedDataframe := goframe.NewDataFrame()
+	expectedDataframe.AddColumn(col1)
+	expectedDataframe.AddColumn(col2)
+
+	multiDf, err := df.MultiSelect("dept", "score")
+	if err != nil {
+		t.Errorf("An error occured trying to MultiSelect columns: %v", err)
+	}
+
+	match := dataFramesEqual(multiDf, expectedDataframe)
+	if !match {
+		t.Errorf("MultiSelect data did not match expected results: \nExpected: %#v \nGot: %#v", expectedDataframe, multiDf)
+	}
+
+	emptyDf, err := df.MultiSelect()
+	expectedDataframe2 := goframe.NewDataFrame()
+	match2 := dataFramesEqual(emptyDf, expectedDataframe2)
+	if !match2 {
+		t.Errorf("MultiSelect data did not match expected results: \nExpected: %#v \nGot: %#v", expectedDataframe, multiDf)
+	}
+
 }
 
 /*
