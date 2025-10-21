@@ -1,6 +1,9 @@
 package goframe
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type GroupedDataFrame struct {
 	Groups   map[any][]map[string]any
@@ -16,7 +19,7 @@ type GroupedDataFrame struct {
 //   - key(s): The key(s) to group the data by.
 //
 // Returns:
-//   - *DataFrame: The grouped DataFrame, returns empty dataframe if error.
+//   - *GroupedDataFrame: The grouped DataFrame, returns empty dataframe if error.
 //   - error: An error if the data cannot be grouped.
 
 func (df *DataFrame) Groupby(key any) *GroupedDataFrame {
@@ -34,7 +37,11 @@ func (df *DataFrame) Groupby(key any) *GroupedDataFrame {
 		}
 
 	case []string:
-		// do something
+		groups, keyOrder, err = groupByList(df, key, groups)
+		if err != nil {
+			return &GroupedDataFrame{Err: fmt.Errorf("unable to group by string: %v", err)}
+		}
+
 	case Series:
 		// do something
 	case map[string]string:
@@ -72,6 +79,46 @@ func groupByString(df *DataFrame, colName string, groups map[any][]map[string]an
 
 	return groups, keys, nil
 
+}
+
+func groupByList(df *DataFrame, colNames []string, groups map[any][]map[string]any) (map[any][]map[string]any, []any, error) {
+	keys := []any{}
+
+	// Validate all columns exist
+	for _, col := range colNames {
+		if _, exists := df.Columns[col]; !exists {
+			return nil, nil, fmt.Errorf("column '%s' does not exist", col)
+		}
+	}
+
+	// Iterate over all rows
+	for i := 0; i < df.Nrows(); i++ {
+		row, err := df.Row(i)
+		if err != nil {
+			return groups, nil, fmt.Errorf("unable to access row %v in the dataframe: %v", i, err)
+		}
+
+		// Build composite key using all specified columns
+		keyParts := make([]string, len(colNames))
+		for j, col := range colNames {
+			val, ok := row[col]
+			if !ok {
+				return nil, nil, fmt.Errorf("column '%s' missing in row %d", col, i)
+			}
+			keyParts[j] = fmt.Sprintf("%v", val)
+		}
+		groupKey := strings.Join(keyParts, "|") // e.g. "A|B"
+
+		// Append in order
+		if _, ok := groups[groupKey]; !ok {
+			keys = append(keys, groupKey)
+		}
+
+		// Append row to group
+		groups[groupKey] = append(groups[groupKey], row)
+	}
+
+	return groups, keys, nil
 }
 
 // The Sum method for the grouped data frame struct is to sum the column values by their column names
