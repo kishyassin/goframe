@@ -748,11 +748,51 @@ func TestGroupBy(t *testing.T) {
 		t.Fatalf("An expected error has occured: %v", expected.Error())
 	}
 
-	// dereferencing using the asterisk again on a pointer
 	equal := reflect.DeepEqual(expected.Groups, grouped.Groups)
 	if !equal {
 		t.Errorf("Grouped data does not match expected result.\nExpected: %#v\nGot: %#v", expected.Groups, grouped.Groups)
 	}
+
+	t.Run("groupByList", func(t *testing.T) {
+		df := goframe.NewDataFrame()
+
+		df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("name", []string{"Bob", "Tim", "Sam"})))
+		df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("dept", []string{"IT", "HR", "IT"})))
+		df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("salary", []int{600, 700, 600})))
+
+		keySlice := []string{"dept", "salary"}
+		var errors error
+
+		grouped := df.Groupby(keySlice)
+		err := grouped.Error()
+		if err != nil {
+			t.Fatalf("An error occured: %v", err)
+		}
+
+		//create the expected data
+		groups := map[any][]map[string]any{
+			"IT|600": {
+				{"name": "Bob", "dept": "IT", "salary": 600},
+				{"name": "Sam", "dept": "IT", "salary": 600},
+			},
+			"HR|700": {
+				{"name": "Tim", "dept": "HR", "salary": 700},
+			},
+		}
+		expected := goframe.GroupedDataFrame{
+			Groups: groups,
+			Key:    keyName,
+			Err:    errors,
+		}
+		if expected.Error() != nil {
+			t.Fatalf("An expected error has occured: %v", expected.Error())
+		}
+
+		equal := reflect.DeepEqual(expected.Groups, grouped.Groups)
+		if !equal {
+			t.Errorf("Grouped data does not match expected result.\nExpected: %#v\nGot: %#v", expected.Groups, grouped.Groups)
+		}
+	})
 
 	// The subtests will be testing on the aggregate methods
 	t.Run("Sum", func(t *testing.T) {
