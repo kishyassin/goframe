@@ -121,7 +121,7 @@ import (
 func main() {
 	df := goframe.NewDataFrame()
 	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"})))
-	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("age", []int{25, 30, 35}))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("age", []int{25, 30, 35})))
 
 	// Access a row
 	row, _ := df.Row(1)
@@ -132,7 +132,7 @@ func main() {
 	fmt.Println("Head:", head)
 
 	// Append a new row
-	df.AppendRow(map[string]any{"name": "Diana", "age": 40})
+	df.AppendRow(df, map[string]any{"name": "Diana", "age": 40})
 	fmt.Println("After appending a row:", df)
 
 	// Drop a row
