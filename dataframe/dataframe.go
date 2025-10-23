@@ -399,3 +399,54 @@ func NewColumn[T any](name string, data []T) *Column[T] {
 		Data: data,
 	}
 }
+
+// Add sums 2 dataframes together.
+//
+// Parameters:
+//   - other: The other dataframe to be summed with.
+//   - fillValue: The value to fill if a Nil value is present in the dataframe.
+//
+// Returns:
+//   - *Dataframe: The pointer to a new Dataframe that contains the summed values.
+//
+// Note:
+//
+//	If there is a Nil values detected for summing numbers in any row, the value will be defaulted to 0.
+func (df *DataFrame) Add(other *DataFrame, fillValue any) (*DataFrame, error) {
+	newDf := *NewDataFrame()
+	if df.Ncols() != other.Ncols() {
+		return &newDf, fmt.Errorf("The number of columns does not match for both dataframes. First dataframe has: %v while second dataframe has: %v", df.Ncols(), other.Ncols())
+	}
+	if df.Nrows() != other.Nrows() {
+		return &newDf, fmt.Errorf("The number of rows does not match for both dataframes. First dataframe has: %v while second dataframe has: %v", df.Nrows(), other.Nrows())
+
+	}
+	for colName, col := range df.Columns {
+
+		// create the new column in newDf
+		colToAdd := NewColumn(colName, []any{})
+
+		// get the other column's row data
+		otherRows := other.Columns[colName].Data
+		dfRows := col.Data
+
+		// get the max number of rows between the 2
+		maxNoRows := max(len(dfRows), len(otherRows))
+		for i := range maxNoRows {
+			// Type assert both values to float64 for numeric addition
+			val1, ok1 := dfRows[i].(float64)
+			val2, ok2 := otherRows[i].(float64)
+			if !ok1 {
+				val1 = 0
+			}
+			if !ok2 {
+				val2 = 0
+			}
+			sum := val1 + val2
+			colToAdd.Data = append(colToAdd.Data, sum)
+		}
+		newDf.AddColumn(colToAdd)
+	}
+
+	return &newDf, nil
+}
