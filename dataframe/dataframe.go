@@ -10,6 +10,7 @@ import (
 	"maps"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -456,16 +457,14 @@ func (df *DataFrame) Add(other *DataFrame, fillValue ...any) (*DataFrame, error)
 			if reflect.TypeOf(val1) != reflect.TypeOf(val2) {
 
 				// try numeric promotion
-				f1, ok1 := val1.(float64)
-				f2, ok2 := val2.(float64)
+				f1, ok1 := toFloat(val1)
+				f2, ok2 := toFloat(val2)
 
 				if ok1 && ok2 {
 					sum = f1 + f2
 				} else {
-					// fallback: string concatenation
-					str1 := fmt.Sprintf("%v", val1)
-					str2 := fmt.Sprintf("%v", val2)
-					sum = str1 + str2
+					// if they are not numerical values
+					sum = nil
 				}
 
 			} else {
@@ -479,7 +478,7 @@ func (df *DataFrame) Add(other *DataFrame, fillValue ...any) (*DataFrame, error)
 					sum = v + val2.(int)
 
 				case string:
-					sum = v + val2.(string)
+					sum = nil
 
 				default:
 					return &newDf, fmt.Errorf("Unable to sum dataframes, Unknown DataType: %v in col: %v, row: %v", v, colName, i)
@@ -493,4 +492,49 @@ func (df *DataFrame) Add(other *DataFrame, fillValue ...any) (*DataFrame, error)
 	}
 	return &newDf, nil
 
+}
+
+// Helper function to convert data types into float data type.
+//
+// Parameters:
+//   - v: The value to convert to float.
+//
+// Returns:
+//   - float64: The converted float value.
+//   - bool: The boolean to check for a successful conversion.
+func toFloat(v any) (float64, bool) {
+	switch n := v.(type) {
+	case int:
+		return float64(n), true
+	case int8:
+		return float64(n), true
+	case int16:
+		return float64(n), true
+	case int32:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	case uint:
+		return float64(n), true
+	case uint8:
+		return float64(n), true
+	case uint16:
+		return float64(n), true
+	case uint32:
+		return float64(n), true
+	case uint64:
+		return float64(n), true
+	case float32:
+		return float64(n), true
+	case float64:
+		return n, true
+	case string:
+		f, err := strconv.ParseFloat(n, 64)
+		if err == nil {
+			return f, true
+		}
+	default:
+		return 0, false
+	}
+	return 0, false
 }
