@@ -993,6 +993,58 @@ func TestMultiSelect(t *testing.T) {
 
 }
 
+func TestAdd(t *testing.T) {
+	// Craft the first dataframe
+	df1 := goframe.NewDataFrame()
+
+	col1 := goframe.ConvertToAnyColumn(goframe.NewColumn("dept", []string{"IT", "HR", "IT"}))
+	col2 := goframe.ConvertToAnyColumn(goframe.NewColumn("score", []int{500, 300, 700}))
+	col3 := goframe.ConvertToAnyColumn(goframe.NewColumn("salary", []float64{500.1, 300.2, 700.3}))
+	col4 := goframe.ConvertToAnyColumn(goframe.NewColumn("stringSalary", []string{"500.1", "300.2", "700.3"}))
+
+	df1.AddColumn(col1)
+	df1.AddColumn(col2)
+	df1.AddColumn(col3)
+	df1.AddColumn(col4)
+
+	// Craft the second dataframe
+	df2 := goframe.NewDataFrame()
+
+	col5 := goframe.ConvertToAnyColumn(goframe.NewColumn("dept", []string{"IT", "HR", "IT"}))
+	col6 := goframe.ConvertToAnyColumn(goframe.NewColumn("score", []int{100, 200, 300}))
+	col7 := goframe.ConvertToAnyColumn(goframe.NewColumn("salary", []float64{100.1, 200.2, 300.3, 400.4}))
+	col8 := goframe.ConvertToAnyColumn(goframe.NewColumn("stringSalary", []string{"100.1", "200.2", "300.3", "400.4"}))
+
+	df2.AddColumn(col5)
+	df2.AddColumn(col6)
+	df2.AddColumn(col7)
+	df2.AddColumn(col8)
+
+	// Craft the expected dataframe
+
+	expectedCol1 := goframe.ConvertToAnyColumn(goframe.NewColumn("dept", []any{nil, nil, nil}))
+	expectedCol2 := goframe.ConvertToAnyColumn(goframe.NewColumn("score", []any{600, 500, 1000}))
+	expectedCol3 := goframe.ConvertToAnyColumn(goframe.NewColumn("salary", []any{600.2, 500.4, 1000.6, nil}))
+	expectedCol4 := goframe.ConvertToAnyColumn(goframe.NewColumn("stringSalary", []any{600.2, 500.4, 1000.6, nil}))
+
+	expectedDataframe := goframe.NewDataFrame()
+	expectedDataframe.AddColumn(expectedCol1)
+	expectedDataframe.AddColumn(expectedCol2)
+	expectedDataframe.AddColumn(expectedCol3)
+	expectedDataframe.AddColumn(expectedCol4)
+
+	summedDf, err := df1.Add(df2)
+	if err != nil {
+		t.Errorf("An error occured when trying to add both dataframes %v", err)
+	}
+
+	match := dataFramesEqual(summedDf, expectedDataframe)
+	if !match {
+		t.Errorf("summedDf data did not match expected results: \nExpected: %#v \nGot: %#v", expectedDataframe.String(), summedDf.String())
+	}
+
+}
+
 /*
 The dataFramesEqual function checks if the data values are numerically equal in 2 different dataframes by converting both
 datatypes into float64 before comparing them.

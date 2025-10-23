@@ -412,9 +412,9 @@ func NewColumn[T any](name string, data []T) *Column[T] {
 //   - *Dataframe: The pointer to a new Dataframe that contains the summed values.
 //
 // Note:
-//
+//   - String values are not summed but instead a Nil value is inserted as the row value.
 //   - If the number of rows do not match, the default value for the mismatched rows will be nil unless fillValue is specified.
-//   - Only the first value in the passed into the fillValue slice will be respected
+//   - Only the first value in the passed into the fillValue slice will be respected.
 func (df *DataFrame) Add(other *DataFrame, fillValue ...any) (*DataFrame, error) {
 	newDf := *NewDataFrame()
 	if df.Ncols() != other.Ncols() {
@@ -453,37 +453,20 @@ func (df *DataFrame) Add(other *DataFrame, fillValue ...any) (*DataFrame, error)
 			val1 := dfRows[i]
 			val2 := otherRows[i]
 
-			// if they are not equal , try to convert them into string and concat them
-			if reflect.TypeOf(val1) != reflect.TypeOf(val2) {
+			f1, ok1 := toFloat(val1)
+			f2, ok2 := toFloat(val2)
 
-				// try numeric promotion
-				f1, ok1 := toFloat(val1)
-				f2, ok2 := toFloat(val2)
-
-				if ok1 && ok2 {
-					sum = f1 + f2
-				} else {
-					// if they are not numerical values
-					sum = nil
-				}
-
-			} else {
-				// else if they are equal, just add/concat them
+			if ok1 && ok2 {
+				sum = f1 + f2
+			} else if reflect.TypeOf(val1) == reflect.TypeOf(val2) {
 				switch v := val1.(type) {
-
-				case float64:
-					sum = v + val2.(float64)
-
-				case int:
-					sum = v + val2.(int)
-
 				case string:
-					sum = nil
-
+					sum = nil // mimic pandas: don't add strings
 				default:
-					return &newDf, fmt.Errorf("Unable to sum dataframes, Unknown DataType: %v in col: %v, row: %v", v, colName, i)
+					return &newDf, fmt.Errorf("Unable to sum dataframes, Unknown DataType: %T in col: %v, row: %v", v, colName, i)
 				}
-
+			} else {
+				sum = nil // fallback for incompatible types
 			}
 
 			colToAdd.Data = append(colToAdd.Data, sum)
