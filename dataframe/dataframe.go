@@ -412,16 +412,14 @@ func NewColumn[T any](name string, data []T) *Column[T] {
 //
 // Note:
 //
-//	If there is a Nil values detected for summing numbers in any row, the value will be defaulted to 0.
-func (df *DataFrame) Add(other *DataFrame, fillValue any) (*DataFrame, error) {
+//   - If the number of rows do not match, the default value for the mismatched rows will be nil unless fillValue is specified.
+//   - Only the first value in the passed into the fillValue slice will be respected
+func (df *DataFrame) Add(other *DataFrame, fillValue ...any) (*DataFrame, error) {
 	newDf := *NewDataFrame()
 	if df.Ncols() != other.Ncols() {
 		return &newDf, fmt.Errorf("The number of columns does not match for both dataframes. First dataframe has: %v while second dataframe has: %v", df.Ncols(), other.Ncols())
 	}
-	if df.Nrows() != other.Nrows() {
-		return &newDf, fmt.Errorf("The number of rows does not match for both dataframes. First dataframe has: %v while second dataframe has: %v", df.Nrows(), other.Nrows())
 
-	}
 	for colName, col := range df.Columns {
 
 		// create the new column in newDf
@@ -435,9 +433,24 @@ func (df *DataFrame) Add(other *DataFrame, fillValue any) (*DataFrame, error) {
 		maxNoRows := max(len(dfRows), len(otherRows))
 		for i := range maxNoRows {
 
+			var sum any
+
+			// if the current index already exceeded the number of rows of either dataframe
+			// since 'i' is 0 indexed, at i == len(dfRows) it is already invalid
+			if i >= len(dfRows) || i >= len(otherRows) {
+				// set the default value to nil
+				sum = nil
+
+				if len(fillValue) != 0 {
+					sum = fillValue[0]
+				}
+
+				colToAdd.Data = append(colToAdd.Data, sum)
+				continue
+			}
+
 			val1 := dfRows[i]
 			val2 := otherRows[i]
-			var sum any
 
 			// if they are not equal , try to convert them into string and concat them
 			if reflect.TypeOf(val1) != reflect.TypeOf(val2) {
@@ -464,7 +477,6 @@ func (df *DataFrame) Add(other *DataFrame, fillValue any) (*DataFrame, error) {
 				}
 
 			}
-			// Type assert both values to float64 for numeric addition
 
 			colToAdd.Data = append(colToAdd.Data, sum)
 		}
