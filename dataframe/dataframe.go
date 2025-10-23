@@ -455,9 +455,18 @@ func (df *DataFrame) Add(other *DataFrame, fillValue ...any) (*DataFrame, error)
 			// if they are not equal , try to convert them into string and concat them
 			if reflect.TypeOf(val1) != reflect.TypeOf(val2) {
 
-				str1 := fmt.Sprintf("%v", val1)
-				str2 := fmt.Sprintf("%v", val2)
-				sum = str1 + str2
+				// try numeric promotion
+				f1, ok1 := val1.(float64)
+				f2, ok2 := val2.(float64)
+
+				if ok1 && ok2 {
+					sum = f1 + f2
+				} else {
+					// fallback: string concatenation
+					str1 := fmt.Sprintf("%v", val1)
+					str2 := fmt.Sprintf("%v", val2)
+					sum = str1 + str2
+				}
 
 			} else {
 				// else if they are equal, just add/concat them
