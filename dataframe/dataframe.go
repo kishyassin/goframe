@@ -8,6 +8,7 @@ package goframe
 import (
 	"fmt"
 	"maps"
+	"reflect"
 	"sort"
 	"strings"
 )
@@ -433,20 +434,42 @@ func (df *DataFrame) Add(other *DataFrame, fillValue any) (*DataFrame, error) {
 		// get the max number of rows between the 2
 		maxNoRows := max(len(dfRows), len(otherRows))
 		for i := range maxNoRows {
+
+			val1 := dfRows[i]
+			val2 := otherRows[i]
+			var sum any
+
+			// if they are not equal , try to convert them into string and concat them
+			if reflect.TypeOf(val1) != reflect.TypeOf(val2) {
+
+				str1 := fmt.Sprintf("%v", val1)
+				str2 := fmt.Sprintf("%v", val2)
+				sum = str1 + str2
+
+			} else {
+				// else if they are equal, just add/concat them
+				switch v := val1.(type) {
+
+				case float64:
+					sum = v + val2.(float64)
+
+				case int:
+					sum = v + val2.(int)
+
+				case string:
+					sum = v + val2.(string)
+
+				default:
+					return &newDf, fmt.Errorf("Unable to sum dataframes, Unknown DataType: %v in col: %v, row: %v", v, colName, i)
+				}
+
+			}
 			// Type assert both values to float64 for numeric addition
-			val1, ok1 := dfRows[i].(float64)
-			val2, ok2 := otherRows[i].(float64)
-			if !ok1 {
-				val1 = 0
-			}
-			if !ok2 {
-				val2 = 0
-			}
-			sum := val1 + val2
+
 			colToAdd.Data = append(colToAdd.Data, sum)
 		}
 		newDf.AddColumn(colToAdd)
 	}
-
 	return &newDf, nil
+
 }
