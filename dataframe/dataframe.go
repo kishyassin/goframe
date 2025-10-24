@@ -409,23 +409,24 @@ type FuncType func(any) any
 //
 // Returns:
 //   - error: An error if the column does not exist.
-func (df *DataFrame) Apply(function FuncType, axis ...int) any {
+func (df *DataFrame) Apply(function FuncType, axis ...int) (any, error) {
 
+	// default to 0 if user did not pass 'axis' parameter
 	if axis == nil {
-		axis[0] = 0
+		axis = []int{0}
 	}
 	// =============== Creation of Result from function ===============
 	// column wise operation (basically operate on all the numbers in the current column only)
 	if axis[0] == 0 {
-		return df.applyColumnwise(function)
+		return df.applyColumnWise(function)
 
 	} else {
-		return df.applyRowwise(function)
+		return df.applyRowWise(function)
 	}
 
 }
 
-func (df *DataFrame) applyColumnwise(fn FuncType) any {
+func (df *DataFrame) applyColumnWise(fn FuncType) (any, error) {
 	results := make(map[string]any)
 	// convert all columns to series
 	for colName, colValue := range df.Columns {
@@ -435,9 +436,33 @@ func (df *DataFrame) applyColumnwise(fn FuncType) any {
 
 	return consolidateResults(results, df.Columns)
 }
-func consolidateResults(results map[string]any, columns map[string]*Column[any]) any {
+
+func (df *DataFrame) applyRowWise(fn FuncType) (any, error) {
+	results := make(map[string]any)
+	// convert all columns to series
+	for i := 0; i < df.Nrows(); i++ {
+
+		row, err := df.Row(i)
+		if err != nil {
+			return results, fmt.Errorf("Error trying to get row: %v", err)
+		}
+
+		rowData := make([]any, df.Ncols())
+
+		for _, data := range row {
+			rowData[i] = data
+		}
+
+		rowSeries := NewSeries(fmt.Sprintf("Row-%d", i), rowData)
+		results[rowSeries.Name] = fn(rowSeries)
+	}
+
+	return consolidateResults(results, df.Columns)
+}
+
+func consolidateResults(results map[string]any, columns map[string]*Column[any]) (any, error) {
 	if len(results) == 0 {
-		return NewDataFrame()
+		return NewDataFrame(), fmt.Errorf("function returns no data")
 	}
 
 	firstResult := getFirstResult(results)
@@ -482,7 +507,7 @@ func getFirstResult(results map[string]any) any {
 
 // 						====================== Simple helper functions =======================
 
-func buildSeriesFromScalars(results map[string]any, columnNames []string) *Series {
+func buildSeriesFromScalars(results map[string]any, columnNames []string) (*Series, error) {
 	//extract the columns from the column map
 	values := make([]any, len(columnNames))
 
@@ -490,10 +515,10 @@ func buildSeriesFromScalars(results map[string]any, columnNames []string) *Serie
 
 		values[i] = results[columnName]
 	}
-	return NewSeries("", values)
+	return NewSeries("", values), nil
 }
 
-func buildDataFrameFromSeries(results map[string]any, columnNames []string) *DataFrame {
+func buildDataFrameFromSeries(results map[string]any, columnNames []string) (*DataFrame, error) {
 
 	df := NewDataFrame()
 
@@ -501,10 +526,10 @@ func buildDataFrameFromSeries(results map[string]any, columnNames []string) *Dat
 		newcol := NewColumn(col, results[col].(*Series).Data)
 		df.AddColumn(newcol)
 	}
-	return df
+	return df, nil
 }
 
-func buildDataFrameFromSlices(results map[string]any, columnNames []string) *DataFrame {
+func buildDataFrameFromSlices(results map[string]any, columnNames []string) (*DataFrame, error) {
 
 	df := NewDataFrame()
 
@@ -512,10 +537,10 @@ func buildDataFrameFromSlices(results map[string]any, columnNames []string) *Dat
 		newcol := NewColumn(col, results[col].([]any))
 		df.AddColumn(newcol)
 	}
-	return df
+	return df, nil
 }
 
-func buildDataFrameFromMaps(results map[string]any, columnNames []string) *DataFrame {
+func buildDataFrameFromMaps(results map[string]any, columnNames []string) (*DataFrame, error) {
 	keys := collectSortedMapKeys(results)
 	df := NewDataFrame()
 
@@ -526,15 +551,15 @@ func buildDataFrameFromMaps(results map[string]any, columnNames []string) *DataF
 		df.AddColumn(newcol)
 
 	}
-	return df
+	return df, nil
 }
 
-func buildSeriesFromObjects(results map[string]interface{}, columnNames []string) *Series {
+func buildSeriesFromObjects(results map[string]interface{}, columnNames []string) (*Series, error) {
 	data := make([]any, len(columnNames))
 	for i, col := range columnNames {
 		data[i] = results[col]
 	}
-	return NewSeries("", data)
+	return NewSeries("", data), nil
 }
 
 func collectSortedMapKeys(results map[string]any) []string {
