@@ -399,3 +399,168 @@ func NewColumn[T any](name string, data []T) *Column[T] {
 		Data: data,
 	}
 }
+
+type FuncType func(any) any
+
+// DropColumn removes a column from the DataFrame.
+//
+// Parameters:
+//   - name: The name of the column to remove.
+//
+// Returns:
+//   - error: An error if the column does not exist.
+func (df *DataFrame) Apply(function FuncType, axis ...int) any {
+
+	if axis == nil {
+		axis[0] = 0
+	}
+	// =============== Creation of Result from function ===============
+	// column wise operation (basically operate on all the numbers in the current column only)
+	if axis[0] == 0 {
+		return df.applyColumnwise(function)
+
+	} else {
+		return df.applyRowwise(function)
+	}
+
+}
+
+func (df *DataFrame) applyColumnwise(fn FuncType) any {
+	results := make(map[string]any)
+	// convert all columns to series
+	for colName, colValue := range df.Columns {
+		colSeries := NewSeries(colName, colValue.Data)
+		results[colSeries.Name] = fn(colSeries)
+	}
+
+	return consolidateResults(results, df.Columns)
+}
+func consolidateResults(results map[string]any, columns map[string]*Column[any]) any {
+	if len(results) == 0 {
+		return NewDataFrame()
+	}
+
+	firstResult := getFirstResult(results)
+
+	colNameSlice := make([]string, len(columns))
+
+	for colNames, _ := range columns {
+		colNameSlice = append(colNameSlice, colNames)
+	}
+
+	switch firstResult.(type) {
+	// If the user returns a scalar type
+	case int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64, string, bool:
+
+		return buildSeriesFromScalars(results, colNameSlice)
+
+	// If the user returns a Series type
+	case *Series:
+		return buildDataFrameFromSeries(results, colNameSlice)
+
+	// If the user returns a slice type
+	case []any:
+		return buildDataFrameFromSlices(results, colNameSlice)
+
+	case map[string]any:
+		return buildDataFrameFromMaps(results, colNameSlice)
+
+	default:
+		return buildSeriesFromObjects(results, colNameSlice)
+	}
+}
+
+// tiny utility function to get the first value of results
+func getFirstResult(results map[string]any) any {
+	for _, r := range results {
+		return r
+	}
+	return nil
+}
+
+// 						====================== Simple helper functions =======================
+
+func buildSeriesFromScalars(results map[string]any, columnNames []string) *Series {
+	//extract the columns from the column map
+	values := make([]any, len(columnNames))
+
+	for i, columnName := range columnNames {
+
+		values[i] = results[columnName]
+	}
+	return NewSeries("", values)
+}
+
+func buildDataFrameFromSeries(results map[string]any, columnNames []string) *DataFrame {
+
+	df := NewDataFrame()
+
+	for _, col := range columnNames {
+		newcol := NewColumn(col, results[col].(*Series).Data)
+		df.AddColumn(newcol)
+	}
+	return df
+}
+
+func buildDataFrameFromSlices(results map[string]any, columnNames []string) *DataFrame {
+
+	df := NewDataFrame()
+
+	for _, col := range columnNames {
+		newcol := NewColumn(col, results[col].([]any))
+		df.AddColumn(newcol)
+	}
+	return df
+}
+
+func buildDataFrameFromMaps(results map[string]any, columnNames []string) *DataFrame {
+	keys := collectSortedMapKeys(results)
+	df := NewDataFrame()
+
+	for _, col := range columnNames {
+
+		m := results[col].(map[string]any)
+		newcol := NewColumn(col, extractMapValuesForKeys(m, keys))
+		df.AddColumn(newcol)
+
+	}
+	return df
+}
+
+func buildSeriesFromObjects(results map[string]interface{}, columnNames []string) *Series {
+	data := make([]any, len(columnNames))
+	for i, col := range columnNames {
+		data[i] = results[col]
+	}
+	return NewSeries("", data)
+}
+
+func collectSortedMapKeys(results map[string]any) []string {
+	keysMap := make(map[string]bool)
+	for _, result := range results {
+		for key := range result.(map[string]any) {
+			keysMap[key] = true
+		}
+	}
+
+	keys := make([]string, 0, len(keysMap))
+	for key := range keysMap {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func extractMapValuesForKeys(m map[string]any, keys []string) []any {
+	data := make([]any, len(keys))
+	for i, key := range keys {
+		if val, exists := m[key]; exists {
+			data[i] = val
+		} else {
+			data[i] = nil
+		}
+	}
+	return data
+}
