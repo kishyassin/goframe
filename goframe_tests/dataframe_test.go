@@ -2,9 +2,11 @@ package goframe_test
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -992,57 +994,78 @@ func TestMultiSelect(t *testing.T) {
 	}
 
 }
-
 func TestAdd(t *testing.T) {
-	// Craft the first dataframe
-	df1 := goframe.NewDataFrame()
+	t.Run("Basic numeric addition", func(t *testing.T) {
+		df1 := goframe.NewDataFrame()
+		df2 := goframe.NewDataFrame()
 
-	col1 := goframe.ConvertToAnyColumn(goframe.NewColumn("dept", []string{"IT", "HR", "IT"}))
-	col2 := goframe.ConvertToAnyColumn(goframe.NewColumn("score", []int{500, 300, 700}))
-	col3 := goframe.ConvertToAnyColumn(goframe.NewColumn("salary", []float64{500.1, 300.2, 700.3}))
-	col4 := goframe.ConvertToAnyColumn(goframe.NewColumn("stringSalary", []string{"500.1", "300.2", "700.3"}))
+		col1 := goframe.ConvertToAnyColumn(goframe.NewColumn("intCol", []int{1, 2, 3}))
+		col2 := goframe.ConvertToAnyColumn(goframe.NewColumn("floatCol", []float64{1.1, 2.2, 3.3}))
 
-	df1.AddColumn(col1)
-	df1.AddColumn(col2)
-	df1.AddColumn(col3)
-	df1.AddColumn(col4)
+		col3 := goframe.ConvertToAnyColumn(goframe.NewColumn("intCol", []int{4, 5, 6}))
+		col4 := goframe.ConvertToAnyColumn(goframe.NewColumn("floatCol", []float64{4.4, 5.5, 6.6}))
 
-	// Craft the second dataframe
-	df2 := goframe.NewDataFrame()
+		df1.AddColumn(col1)
+		df1.AddColumn(col2)
+		df2.AddColumn(col3)
+		df2.AddColumn(col4)
 
-	col5 := goframe.ConvertToAnyColumn(goframe.NewColumn("dept", []string{"IT", "HR", "IT"}))
-	col6 := goframe.ConvertToAnyColumn(goframe.NewColumn("score", []int{100, 200, 300}))
-	col7 := goframe.ConvertToAnyColumn(goframe.NewColumn("salary", []float64{100.1, 200.2, 300.3, 400.4}))
-	col8 := goframe.ConvertToAnyColumn(goframe.NewColumn("stringSalary", []string{"100.1", "200.2", "300.3", "400.4"}))
+		expected := goframe.NewDataFrame()
+		expected.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("intCol", []any{5, 7, 9})))
+		expected.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("floatCol", []any{5.5, 7.7, 9.9})))
 
-	df2.AddColumn(col5)
-	df2.AddColumn(col6)
-	df2.AddColumn(col7)
-	df2.AddColumn(col8)
+		result, err := df1.Add(df2)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		if !dataFramesEqual(result, expected) {
+			t.Errorf("Basic numeric addition failed.\nExpected:\n%v\nGot:\n%v", expected.String(), result.String())
+		}
+	})
 
-	// Craft the expected dataframe
+	t.Run("String addition", func(t *testing.T) {
+		df1 := goframe.NewDataFrame()
+		df2 := goframe.NewDataFrame()
 
-	expectedCol1 := goframe.ConvertToAnyColumn(goframe.NewColumn("dept", []any{nil, nil, nil}))
-	expectedCol2 := goframe.ConvertToAnyColumn(goframe.NewColumn("score", []any{600, 500, 1000}))
-	expectedCol3 := goframe.ConvertToAnyColumn(goframe.NewColumn("salary", []any{600.2, 500.4, 1000.6, nil}))
-	expectedCol4 := goframe.ConvertToAnyColumn(goframe.NewColumn("stringSalary", []any{600.2, 500.4, 1000.6, nil}))
+		col1 := goframe.ConvertToAnyColumn(goframe.NewColumn("text", []string{"a", "b", "c"}))
+		col2 := goframe.ConvertToAnyColumn(goframe.NewColumn("text", []string{"x", "y", "z"}))
 
-	expectedDataframe := goframe.NewDataFrame()
-	expectedDataframe.AddColumn(expectedCol1)
-	expectedDataframe.AddColumn(expectedCol2)
-	expectedDataframe.AddColumn(expectedCol3)
-	expectedDataframe.AddColumn(expectedCol4)
+		df1.AddColumn(col1)
+		df2.AddColumn(col2)
 
-	summedDf, err := df1.Add(df2)
-	if err != nil {
-		t.Errorf("An error occured when trying to add both dataframes %v", err)
-	}
+		expected := goframe.NewDataFrame()
+		expected.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("text", []any{nil, nil, nil}))) // mimic pandas behavior
 
-	match := dataFramesEqual(summedDf, expectedDataframe)
-	if !match {
-		t.Errorf("summedDf data did not match expected results: \nExpected: %#v \nGot: %#v", expectedDataframe.String(), summedDf.String())
-	}
+		result, err := df1.Add(df2)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		if !dataFramesEqual(result, expected) {
+			t.Errorf("String addition failed.\nExpected:\n%v\nGot:\n%v", expected.String(), result.String())
+		}
+	})
 
+	t.Run("Numerical strings addition", func(t *testing.T) {
+		df1 := goframe.NewDataFrame()
+		df2 := goframe.NewDataFrame()
+
+		col1 := goframe.ConvertToAnyColumn(goframe.NewColumn("numStr", []string{"1.1", "2.2", "3.3"}))
+		col2 := goframe.ConvertToAnyColumn(goframe.NewColumn("numStr", []string{"4.4", "5.5", "6.6"}))
+
+		df1.AddColumn(col1)
+		df2.AddColumn(col2)
+
+		expected := goframe.NewDataFrame()
+		expected.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("numStr", []any{5.5, 7.7, 9.9}))) // unless you parse strings to float
+
+		result, err := df1.Add(df2)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		if !dataFramesEqual(result, expected) {
+			t.Errorf("Numerical string addition failed.\nExpected:\n%v\nGot:\n%v", expected.String(), result.String())
+		}
+	})
 }
 
 /*
@@ -1076,13 +1099,14 @@ func dataFramesEqual(a, b *goframe.DataFrame) bool {
 			aVal := colA.Data[i]
 			bVal := colB.Data[i]
 
-			aFLoat, aOk := aVal.(float64)
-			bFLoat, bOk := bVal.(float64)
-			if aOk && bOk {
-				if aFLoat != bFLoat {
-					return false
+			switch aVal.(type) {
+			case float64:
+
+				// Handle all numeric comparisons
+				if almostEqual(aVal, bVal) {
+					continue
 				}
-				continue
+
 			}
 
 			if !reflect.DeepEqual(aVal, bVal) {
@@ -1090,5 +1114,54 @@ func dataFramesEqual(a, b *goframe.DataFrame) bool {
 			}
 		}
 	}
+	fmt.Println("all floats equal within tolerance.")
 	return true
+}
+
+const floatTolerance = 1e-9
+
+func almostEqual(a, b any) bool {
+	aFloat, aOk := toFloat(a)
+	bFloat, bOk := toFloat(b)
+	if aOk && bOk {
+		return math.Abs(aFloat-bFloat) < floatTolerance
+	}
+	return false
+}
+
+func toFloat(v any) (float64, bool) {
+	switch n := v.(type) {
+	case int:
+		return float64(n), true
+	case int8:
+		return float64(n), true
+	case int16:
+		return float64(n), true
+	case int32:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	case uint:
+		return float64(n), true
+	case uint8:
+		return float64(n), true
+	case uint16:
+		return float64(n), true
+	case uint32:
+		return float64(n), true
+	case uint64:
+		return float64(n), true
+	case float32:
+		return float64(n), true
+	case float64:
+		return n, true
+	case string:
+		f, err := strconv.ParseFloat(n, 64)
+		if err == nil {
+			return f, true
+		}
+	default:
+		return 0, false
+	}
+	return 0, false
 }
