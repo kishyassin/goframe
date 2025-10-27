@@ -8,7 +8,9 @@ package goframe
 import (
 	"fmt"
 	"maps"
+	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -76,7 +78,7 @@ func (df *DataFrame) MultiSelect(name ...string) (*DataFrame, error) {
 	newDf.Columns = make(map[string]*Column[any])
 
 	if len(name) < 1 {
-		return &newDf, fmt.Errorf("Please enter 1 or more column name(s)")
+		return &newDf, fmt.Errorf("please enter 1 or more column name(s)")
 	}
 
 	for _, name := range name {
@@ -588,4 +590,124 @@ func extractMapValuesForKeys(m map[string]any, keys []string) []any {
 		}
 	}
 	return data
+}
+
+// Add sums 2 dataframes together.
+//
+// Parameters:
+//   - other: The other dataframe to be summed with.
+//   - fillValue: The value to fill if a Nil value is present in the dataframe.
+//
+// Returns:
+//   - *Dataframe: The pointer to a new Dataframe that contains the summed values.
+//
+// Note:
+//   - String values are not summed but instead a Nil value is inserted as the row value.
+//   - If the number of rows do not match, the default value for the mismatched rows will be nil unless fillValue is specified.
+//   - Only the first value in the passed into the fillValue slice will be respected.
+func (df *DataFrame) Add(other *DataFrame, fillValue ...any) (*DataFrame, error) {
+	newDf := *NewDataFrame()
+	if df.Ncols() != other.Ncols() {
+		return &newDf, fmt.Errorf("the number of columns does not match for both dataframes. First dataframe has: %v while second dataframe has: %v", df.Ncols(), other.Ncols())
+	}
+
+	for colName, col := range df.Columns {
+
+		// create the new column in newDf
+		colToAdd := NewColumn(colName, []any{})
+
+		// get the other column's row data
+		otherRows := other.Columns[colName].Data
+		dfRows := col.Data
+
+		// get the max number of rows between the 2
+		maxNoRows := max(len(dfRows), len(otherRows))
+		for i := range maxNoRows {
+
+			var sum any
+
+			// if the current index already exceeded the number of rows of either dataframe
+			// since 'i' is 0 indexed, at i == len(dfRows) it is already invalid
+			if i >= len(dfRows) || i >= len(otherRows) {
+				// set the default value to nil
+				sum = nil
+
+				if len(fillValue) != 0 {
+					sum = fillValue[0]
+				}
+
+				colToAdd.Data = append(colToAdd.Data, sum)
+				continue
+			}
+
+			val1 := dfRows[i]
+			val2 := otherRows[i]
+
+			f1, ok1 := toFloat(val1)
+			f2, ok2 := toFloat(val2)
+
+			if ok1 && ok2 {
+				sum = f1 + f2
+			} else if reflect.TypeOf(val1) == reflect.TypeOf(val2) {
+				switch v := val1.(type) {
+				case string:
+					sum = nil // mimic pandas: don't add strings
+				default:
+					return &newDf, fmt.Errorf("unable to sum dataframes, Unknown DataType: %T in col: %v, row: %v", v, colName, i)
+				}
+			} else {
+				sum = nil // fallback for incompatible types
+			}
+
+			colToAdd.Data = append(colToAdd.Data, sum)
+		}
+		newDf.AddColumn(colToAdd)
+	}
+	return &newDf, nil
+
+}
+
+// Helper function to convert data types into float data type.
+//
+// Parameters:
+//   - v: The value to convert to float.
+//
+// Returns:
+//   - float64: The converted float value.
+//   - bool: The boolean to check for a successful conversion.
+func toFloat(v any) (float64, bool) {
+	switch n := v.(type) {
+	case int:
+		return float64(n), true
+	case int8:
+		return float64(n), true
+	case int16:
+		return float64(n), true
+	case int32:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	case uint:
+		return float64(n), true
+	case uint8:
+		return float64(n), true
+	case uint16:
+		return float64(n), true
+	case uint32:
+		return float64(n), true
+	case uint64:
+		return float64(n), true
+	case float32:
+		return float64(n), true
+	case float64:
+		return n, true
+	case string:
+		f, err := strconv.ParseFloat(n, 64)
+		if err == nil {
+			return f, true
+		}
+	default:
+		return 0, false
+	}
+	return 0, false
 }
