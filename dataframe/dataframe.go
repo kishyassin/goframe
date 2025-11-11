@@ -402,15 +402,21 @@ func NewColumn[T any](name string, data []T) *Column[T] {
 	}
 }
 
-type FuncType func(any) any
+type FuncType func([]any) any
 
-// DropColumn removes a column from the DataFrame.
+// Apply applies the function defined in the parameters to the data in row-wise or column-wise
 //
 // Parameters:
-//   - name: The name of the column to remove.
+//   - function: The function to apply to all the data. Can be custom defined functions.
+//   - axis (optional): The direction to apply the function. 0 for column-wise, 1 for row-wise.
+//     The default is column-wise if left empty, else it is row wise for numbers other than 0.
 //
 // Returns:
-//   - error: An error if the column does not exist.
+//   - any: The returned datatype depends on the return type of the function passed into the parameter.
+//   - error: An error if unable to get the dataset's row, functions return nothing, etc...
+//
+// Note:
+//   - The method signature of the custom function needs to match the FuncType type: 'func(x any) any'
 func (df *DataFrame) Apply(function FuncType, axis ...int) (any, error) {
 
 	// default to 0 if user did not pass 'axis' parameter
@@ -429,167 +435,122 @@ func (df *DataFrame) Apply(function FuncType, axis ...int) (any, error) {
 }
 
 func (df *DataFrame) applyColumnWise(fn FuncType) (any, error) {
-	results := make(map[string]any)
-	// convert all columns to series
+
+	results := make(map[string][]any)
+
 	for colName, colValue := range df.Columns {
-		colSeries := NewSeries(colName, colValue.Data)
-		results[colSeries.Name] = fn(colSeries)
+		fmt.Printf("ColName: %v, colValue: %v", colName, colValue)
+
+		// initialize the slice if it doesn't exist yet
+		if _, exists := results[colName]; !exists {
+			results[colName] = make([]any, len(colValue.Data)) // create a slice with the same length as the column
+		}
+
+		// here, the function is applied once per column
+		result := fn(colValue.Data) // Pass the entire column data to fn
+
+		switch value := result.(type) {
+		case []any:
+			// if the result is already []any (slice of any), we can directly use it
+			results[colName] = value
+
+		case []string:
+			// if the result is []string, convert it to []any
+			converted := make([]any, len(value))
+			for i, v := range value {
+				converted[i] = v // convert each string element to any
+			}
+			results[colName] = converted
+
+		case []int:
+			// if the result is []int, convert it to []any
+			converted := make([]any, len(value))
+			for i, v := range value {
+				converted[i] = v // convert each int element to any
+			}
+			results[colName] = converted
+
+		case []bool:
+			// if the result is []bool, convert it to []any
+			converted := make([]any, len(value))
+			for i, v := range value {
+				converted[i] = v // convert each int element to any
+			}
+			results[colName] = converted
+
+		case any:
+			// if the function returns a single value, repeat it for every element in the column
+			repeated := make([]any, len(colValue.Data))
+			for i := range repeated {
+				repeated[i] = value
+			}
+			results[colName] = repeated
+
+		default:
+			// handle unexpected result type
+			return nil, fmt.Errorf("unexpected result type: %T", result)
+		}
+
 	}
 
-	return consolidateResults(results, df.Columns)
+	return consolidateResults(results)
 }
 
 func (df *DataFrame) applyRowWise(fn FuncType) (any, error) {
-	results := make(map[string]any)
-	// convert all columns to series
+	results := make(map[string][]any)
+
 	for i := 0; i < df.Nrows(); i++ {
 
 		row, err := df.Row(i)
 		if err != nil {
 			return results, fmt.Errorf("Error trying to get row: %v", err)
 		}
-
-		rowData := make([]any, df.Ncols())
-
-		for _, data := range row {
-			rowData[i] = data
+		cols := df.ColumnNames()
+		rowData := make([]any, len(cols))
+		for j, colName := range cols {
+			// we access each column in each row and assign it to row Data
+			rowData[j] = row[colName]
 		}
 
-		rowSeries := NewSeries(fmt.Sprintf("Row-%d", i), rowData)
-		results[rowSeries.Name] = fn(rowSeries)
+		// apply the function to the whole rowData (multiple values per row)
+		result := fn(rowData) // spread rowData as arguments
+
+		// handle result depending on whether it's a slice or single value
+		switch value := result.(type) {
+		case []any:
+			// if the result is a slice, this means we are transforming each element in the row
+			// store the result as a series (one element per column)
+			for j, colName := range cols {
+				results[colName] = append(results[colName], value[j]) // append each element in the result slice
+			}
+		case any:
+			// if the result is a single value, repeat it across the row
+			for _, colName := range cols {
+				results[colName] = append(results[colName], value) // append the single value to each column
+			}
+		default:
+			// handle unexpected result type
+			return nil, fmt.Errorf("unexpected result type: %T", result)
+		}
 	}
 
-	return consolidateResults(results, df.Columns)
+	return consolidateResults(results)
 }
 
-func consolidateResults(results map[string]any, columns map[string]*Column[any]) (any, error) {
+func consolidateResults(results map[string][]any) (*DataFrame, error) {
+
 	if len(results) == 0 {
 		return NewDataFrame(), fmt.Errorf("function returns no data")
 	}
+	finalDf := NewDataFrame()
 
-	firstResult := getFirstResult(results)
-
-	colNameSlice := make([]string, len(columns))
-
-	for colNames, _ := range columns {
-		colNameSlice = append(colNameSlice, colNames)
+	for key, value := range results {
+		col := NewColumn(key, value)
+		finalDf.AddColumn(col)
 	}
 
-	switch firstResult.(type) {
-	// If the user returns a scalar type
-	case int, int8, int16, int32, int64,
-		uint, uint8, uint16, uint32, uint64,
-		float32, float64, string, bool:
+	return finalDf, nil
 
-		return buildSeriesFromScalars(results, colNameSlice)
-
-	// If the user returns a Series type
-	case *Series:
-		return buildDataFrameFromSeries(results, colNameSlice)
-
-	// If the user returns a slice type
-	case []any:
-		return buildDataFrameFromSlices(results, colNameSlice)
-
-	case map[string]any:
-		return buildDataFrameFromMaps(results, colNameSlice)
-
-	default:
-		return buildSeriesFromObjects(results, colNameSlice)
-	}
-}
-
-// tiny utility function to get the first value of results
-func getFirstResult(results map[string]any) any {
-	for _, r := range results {
-		return r
-	}
-	return nil
-}
-
-// 						====================== Simple helper functions =======================
-
-func buildSeriesFromScalars(results map[string]any, columnNames []string) (*Series, error) {
-	//extract the columns from the column map
-	values := make([]any, len(columnNames))
-
-	for i, columnName := range columnNames {
-
-		values[i] = results[columnName]
-	}
-	return NewSeries("", values), nil
-}
-
-func buildDataFrameFromSeries(results map[string]any, columnNames []string) (*DataFrame, error) {
-
-	df := NewDataFrame()
-
-	for _, col := range columnNames {
-		newcol := NewColumn(col, results[col].(*Series).Data)
-		df.AddColumn(newcol)
-	}
-	return df, nil
-}
-
-func buildDataFrameFromSlices(results map[string]any, columnNames []string) (*DataFrame, error) {
-
-	df := NewDataFrame()
-
-	for _, col := range columnNames {
-		newcol := NewColumn(col, results[col].([]any))
-		df.AddColumn(newcol)
-	}
-	return df, nil
-}
-
-func buildDataFrameFromMaps(results map[string]any, columnNames []string) (*DataFrame, error) {
-	keys := collectSortedMapKeys(results)
-	df := NewDataFrame()
-
-	for _, col := range columnNames {
-
-		m := results[col].(map[string]any)
-		newcol := NewColumn(col, extractMapValuesForKeys(m, keys))
-		df.AddColumn(newcol)
-
-	}
-	return df, nil
-}
-
-func buildSeriesFromObjects(results map[string]interface{}, columnNames []string) (*Series, error) {
-	data := make([]any, len(columnNames))
-	for i, col := range columnNames {
-		data[i] = results[col]
-	}
-	return NewSeries("", data), nil
-}
-
-func collectSortedMapKeys(results map[string]any) []string {
-	keysMap := make(map[string]bool)
-	for _, result := range results {
-		for key := range result.(map[string]any) {
-			keysMap[key] = true
-		}
-	}
-
-	keys := make([]string, 0, len(keysMap))
-	for key := range keysMap {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-func extractMapValuesForKeys(m map[string]any, keys []string) []any {
-	data := make([]any, len(keys))
-	for i, key := range keys {
-		if val, exists := m[key]; exists {
-			data[i] = val
-		} else {
-			data[i] = nil
-		}
-	}
-	return data
 }
 
 // Add sums 2 dataframes together.
