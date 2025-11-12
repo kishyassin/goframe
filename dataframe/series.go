@@ -15,7 +15,7 @@ import (
 // It provides methods for accessing and manipulating the data.
 type Series struct {
 	Name string
-	Data []interface{}
+	Data []any
 }
 
 // NewSeries creates a new Series with the given name and data.
@@ -26,7 +26,7 @@ type Series struct {
 //
 // Returns:
 //   - *Series: A pointer to the newly created Series.
-func NewSeries(name string, data []interface{}) *Series {
+func NewSeries(name string, data []any) *Series {
 	return &Series{
 		Name: name,
 		Data: data,

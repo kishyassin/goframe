@@ -78,7 +78,7 @@ func (df *DataFrame) MultiSelect(name ...string) (*DataFrame, error) {
 	newDf.Columns = make(map[string]*Column[any])
 
 	if len(name) < 1 {
-		return &newDf, fmt.Errorf("Please enter 1 or more column name(s)")
+		return &newDf, fmt.Errorf("please enter 1 or more column name(s)")
 	}
 
 	for _, name := range name {
@@ -402,6 +402,157 @@ func NewColumn[T any](name string, data []T) *Column[T] {
 	}
 }
 
+type FuncType func([]any) any
+
+// Apply applies the function defined in the parameters to the data in row-wise or column-wise
+//
+// Parameters:
+//   - function: The function to apply to all the data. Can be custom defined functions.
+//   - axis (optional): The direction to apply the function. 0 for column-wise, 1 for row-wise.
+//     The default is column-wise if left empty, else it is row wise for numbers other than 0.
+//
+// Returns:
+//   - any: The returned datatype depends on the return type of the function passed into the parameter.
+//   - error: An error if unable to get the dataset's row, functions return nothing, etc...
+//
+// Note:
+//   - The method signature of the custom function needs to match the FuncType type: 'func(x any) any'
+func (df *DataFrame) Apply(function FuncType, axis ...int) (any, error) {
+
+	// default to 0 if user did not pass 'axis' parameter
+	if axis == nil {
+		axis = []int{0}
+	}
+	// =============== Creation of Result from function ===============
+	// column wise operation (basically operate on all the numbers in the current column only)
+	if axis[0] == 0 {
+		return df.applyColumnWise(function)
+
+	} else {
+		return df.applyRowWise(function)
+	}
+
+}
+
+func (df *DataFrame) applyColumnWise(fn FuncType) (any, error) {
+
+	results := make(map[string][]any)
+
+	for colName, colValue := range df.Columns {
+		fmt.Printf("ColName: %v, colValue: %v", colName, colValue)
+
+		// initialize the slice if it doesn't exist yet
+		if _, exists := results[colName]; !exists {
+			results[colName] = make([]any, len(colValue.Data)) // create a slice with the same length as the column
+		}
+
+		// here, the function is applied once per column
+		result := fn(colValue.Data) // Pass the entire column data to fn
+
+		switch value := result.(type) {
+		case []any:
+			// if the result is already []any (slice of any), we can directly use it
+			results[colName] = value
+
+		case []string:
+			// if the result is []string, convert it to []any
+			converted := make([]any, len(value))
+			for i, v := range value {
+				converted[i] = v // convert each string element to any
+			}
+			results[colName] = converted
+
+		case []int:
+			// if the result is []int, convert it to []any
+			converted := make([]any, len(value))
+			for i, v := range value {
+				converted[i] = v // convert each int element to any
+			}
+			results[colName] = converted
+
+		case []bool:
+			// if the result is []bool, convert it to []any
+			converted := make([]any, len(value))
+			for i, v := range value {
+				converted[i] = v // convert each int element to any
+			}
+			results[colName] = converted
+
+		case any:
+			// if the function returns a single value, repeat it for every element in the column
+			repeated := make([]any, len(colValue.Data))
+			for i := range repeated {
+				repeated[i] = value
+			}
+			results[colName] = repeated
+
+		default:
+			// handle unexpected result type
+			return nil, fmt.Errorf("unexpected result type: %T", result)
+		}
+
+	}
+
+	return consolidateResults(results)
+}
+
+func (df *DataFrame) applyRowWise(fn FuncType) (any, error) {
+	results := make(map[string][]any)
+
+	for i := 0; i < df.Nrows(); i++ {
+
+		row, err := df.Row(i)
+		if err != nil {
+			return results, fmt.Errorf("Error trying to get row: %v", err)
+		}
+		cols := df.ColumnNames()
+		rowData := make([]any, len(cols))
+		for j, colName := range cols {
+			// we access each column in each row and assign it to row Data
+			rowData[j] = row[colName]
+		}
+
+		// apply the function to the whole rowData (multiple values per row)
+		result := fn(rowData) // spread rowData as arguments
+
+		// handle result depending on whether it's a slice or single value
+		switch value := result.(type) {
+		case []any:
+			// if the result is a slice, this means we are transforming each element in the row
+			// store the result as a series (one element per column)
+			for j, colName := range cols {
+				results[colName] = append(results[colName], value[j]) // append each element in the result slice
+			}
+		case any:
+			// if the result is a single value, repeat it across the row
+			for _, colName := range cols {
+				results[colName] = append(results[colName], value) // append the single value to each column
+			}
+		default:
+			// handle unexpected result type
+			return nil, fmt.Errorf("unexpected result type: %T", result)
+		}
+	}
+
+	return consolidateResults(results)
+}
+
+func consolidateResults(results map[string][]any) (*DataFrame, error) {
+
+	if len(results) == 0 {
+		return NewDataFrame(), fmt.Errorf("function returns no data")
+	}
+	finalDf := NewDataFrame()
+
+	for key, value := range results {
+		col := NewColumn(key, value)
+		finalDf.AddColumn(col)
+	}
+
+	return finalDf, nil
+
+}
+
 // Add sums 2 dataframes together.
 //
 // Parameters:
@@ -418,7 +569,7 @@ func NewColumn[T any](name string, data []T) *Column[T] {
 func (df *DataFrame) Add(other *DataFrame, fillValue ...any) (*DataFrame, error) {
 	newDf := *NewDataFrame()
 	if df.Ncols() != other.Ncols() {
-		return &newDf, fmt.Errorf("The number of columns does not match for both dataframes. First dataframe has: %v while second dataframe has: %v", df.Ncols(), other.Ncols())
+		return &newDf, fmt.Errorf("the number of columns does not match for both dataframes. First dataframe has: %v while second dataframe has: %v", df.Ncols(), other.Ncols())
 	}
 
 	for colName, col := range df.Columns {
@@ -463,7 +614,7 @@ func (df *DataFrame) Add(other *DataFrame, fillValue ...any) (*DataFrame, error)
 				case string:
 					sum = nil // mimic pandas: don't add strings
 				default:
-					return &newDf, fmt.Errorf("Unable to sum dataframes, Unknown DataType: %T in col: %v, row: %v", v, colName, i)
+					return &newDf, fmt.Errorf("unable to sum dataframes, Unknown DataType: %T in col: %v, row: %v", v, colName, i)
 				}
 			} else {
 				sum = nil // fallback for incompatible types

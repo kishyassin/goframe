@@ -1068,6 +1068,254 @@ func TestAdd(t *testing.T) {
 	})
 }
 
+func TestApply(t *testing.T) {
+	df := goframe.NewDataFrame()
+	col1 := goframe.ConvertToAnyColumn(goframe.NewColumn("col1", []int{1, 2, 3}))
+	col2 := goframe.ConvertToAnyColumn(goframe.NewColumn("col2", []int{4, 5, 6}))
+
+	df.AddColumn(col1)
+	df.AddColumn(col2)
+
+	t.Run("Multiplication function", func(t *testing.T) {
+		// Define custom function
+
+		multiplySlice := func(x []any) any {
+			final := []any{}
+			for _, num := range x {
+
+				switch v := num.(type) {
+				case int:
+					final = append(final, v*2)
+				case float64:
+					final = append(final, v*2)
+				default:
+					return nil // Return nil for unsupported types
+				}
+			}
+
+			return final
+		}
+
+		multiplySingleValue := func(x []any) any {
+			num := x[0]
+
+			switch v := num.(type) {
+			case int:
+				return v * 2
+			case float64:
+				return v * 2
+			default:
+				return nil
+			}
+		}
+
+		// Test when custom function returns a slice of values
+
+		result, err := df.Apply(multiplySlice)
+		if err != nil {
+			t.Errorf("An error occured: %v", err)
+		}
+
+		// expected to return a dataframe
+		expected := goframe.NewDataFrame()
+
+		expectedColSlice := goframe.NewColumn("col1", []any{2, 4, 6})
+		expectedColSlice2 := goframe.NewColumn("col2", []any{8, 10, 12})
+
+		goframe.AddTypedColumn(expected, expectedColSlice)
+		goframe.AddTypedColumn(expected, expectedColSlice2)
+
+		if !reflect.DeepEqual(result, expected) {
+			t.Errorf("Applying of multiplication function for slice to dataset failed \nExpected:\n%v\nGot:\n%v", expected, result)
+		}
+
+		// Test when custom function returns single value
+		result, err = df.Apply(multiplySingleValue)
+		if err != nil {
+			t.Errorf("An error occured: %v", err)
+		}
+
+		// expected to return a dataframe with repeating values
+		expectedSingle := goframe.NewDataFrame()
+
+		expectedColSingle := goframe.NewColumn("col1", []any{2, 2, 2})
+		expectedColSingle2 := goframe.NewColumn("col2", []any{8, 8, 8})
+
+		goframe.AddTypedColumn(expectedSingle, expectedColSingle)
+		goframe.AddTypedColumn(expectedSingle, expectedColSingle2)
+
+		if !reflect.DeepEqual(result, expectedSingle) {
+			t.Errorf("Applying of multiplication function for single value to dataset failed \nExpected:\n%v\nGot:\n%v", expectedSingle, result)
+		}
+	})
+
+	t.Run("Addition function", func(t *testing.T) {
+		add5 := func(x []any) any {
+			final := []any{}
+			for _, num := range x {
+				switch v := num.(type) {
+				case int:
+					final = append(final, v+5)
+				case float64:
+					final = append(final, v+5)
+				default:
+					return nil
+				}
+			}
+
+			return final
+		}
+
+		result, err := df.Apply(add5)
+		if err != nil {
+			t.Errorf("An error occurred: %v", err)
+		}
+
+		expected := goframe.NewDataFrame()
+		expectedCol1 := goframe.NewColumn("col1", []int{6, 7, 8})
+		expectedCol2 := goframe.NewColumn("col2", []int{9, 10, 11})
+
+		goframe.AddTypedColumn(expected, expectedCol1)
+		goframe.AddTypedColumn(expected, expectedCol2)
+
+		if !reflect.DeepEqual(result, expected) {
+			t.Errorf("Addition function failed \nExpected:\n%v\nGot:\n%v", expected, result)
+		}
+	})
+
+	t.Run("String conversion function", func(t *testing.T) {
+		toString := func(x []any) any {
+			final := []string{}
+			for _, value := range x {
+				final = append(final, fmt.Sprintf("%v", value))
+			}
+			return final
+		}
+
+		result, err := df.Apply(toString)
+		if err != nil {
+			t.Errorf("An error occurred: %v", err)
+		}
+
+		expected := goframe.NewDataFrame()
+		expectedCol1 := goframe.NewColumn("col1", []string{"1", "2", "3"})
+		expectedCol2 := goframe.NewColumn("col2", []string{"4", "5", "6"})
+
+		goframe.AddTypedColumn(expected, expectedCol1)
+		goframe.AddTypedColumn(expected, expectedCol2)
+
+		if !reflect.DeepEqual(result, expected) {
+			t.Errorf("String conversion failed \nExpected:\n%v\nGot:\n%v", expected, result)
+		}
+	})
+
+	t.Run("Conditional function", func(t *testing.T) {
+		greaterThan3 := func(x []any) any {
+			final := []bool{}
+			for _, num := range x {
+				switch v := num.(type) {
+				case int:
+					final = append(final, v > 3)
+				default:
+					final = append(final, false)
+				}
+			}
+
+			return final
+		}
+
+		result, err := df.Apply(greaterThan3)
+		if err != nil {
+			t.Errorf("An error occurred: %v", err)
+		}
+
+		expected := goframe.NewDataFrame()
+		expectedCol1 := goframe.NewColumn("col1", []bool{false, false, false})
+		expectedCol2 := goframe.NewColumn("col2", []bool{true, true, true})
+
+		goframe.AddTypedColumn(expected, expectedCol1)
+		goframe.AddTypedColumn(expected, expectedCol2)
+
+		if !reflect.DeepEqual(result, expected) {
+			t.Errorf("Conditional function failed \nExpected:\n%v\nGot:\n%v", expected, result)
+		}
+	})
+
+	t.Run("Row-wise handling for slice", func(t *testing.T) {
+		multiply := func(x []any) any {
+			final := []any{}
+			for _, num := range x {
+				switch v := num.(type) {
+				case int:
+					final = append(final, v*2)
+				case float64:
+					final = append(final, v*2)
+				default:
+					return nil // Return nil for unsupported types
+				}
+			}
+
+			return final
+		}
+
+		result, err := df.Apply(multiply, 1)
+		if err != nil {
+			t.Errorf("An error occured: %v", err)
+		}
+
+		// expected to return a Series
+		expected := goframe.NewDataFrame()
+
+		expectedCol := goframe.NewColumn("col1", []int{2, 4, 6})
+		expectedCol2 := goframe.NewColumn("col2", []int{8, 10, 12})
+
+		goframe.AddTypedColumn(expected, expectedCol)
+		goframe.AddTypedColumn(expected, expectedCol2)
+
+		if !reflect.DeepEqual(result, expected) {
+			t.Errorf("Applying of function to dataset failed \nExpected:\n%v\nGot:\n%v", expected, result)
+		}
+
+	})
+
+	t.Run("Row-wise handling for single value", func(t *testing.T) {
+		multiply := func(x []any) any {
+			num := x[0]
+
+			switch v := num.(type) {
+			case int:
+				return v * 2
+			case float64:
+				return v * 2
+			default:
+				return nil // Return nil for unsupported types
+			}
+
+		}
+
+		result, err := df.Apply(multiply, 1)
+		if err != nil {
+			t.Errorf("An error occured: %v", err)
+		}
+
+		// expected to return a Series
+		expected := goframe.NewDataFrame()
+
+		expectedCol := goframe.NewColumn("col1", []int{2, 4, 6})
+		expectedCol2 := goframe.NewColumn("col2", []int{2, 4, 6})
+
+		goframe.AddTypedColumn(expected, expectedCol)
+		goframe.AddTypedColumn(expected, expectedCol2)
+
+		if !reflect.DeepEqual(result, expected) {
+			t.Errorf("Applying of function to dataset failed \nExpected:\n%v\nGot:\n%v", expected, result)
+		}
+
+	})
+}
+
+// MARK: Helper Functions
+
 /*
 The dataFramesEqual function checks if the data values are numerically equal in 2 different dataframes by converting both
 datatypes into float64 before comparing them.
