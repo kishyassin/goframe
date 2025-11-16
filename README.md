@@ -143,39 +143,37 @@ func main() {
 }
 ```
 
-	### Adding two DataFrames (`DataFrame.Add`)
+    ### Adding two DataFrames (`DataFrame.Add`)
 
-	```go
-	package main
+    ```go
+    package main
 
-	import (
-		"fmt"
-		"log"
+    import (
+    	"fmt"
+    	"log"
 
-		"github.com/kishyassin/goframe"
-	)
+    	"github.com/kishyassin/goframe"
+    )
 
-	func main() {
-		df1 := goframe.NewDataFrame()
-		df1.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("a", []int{1, 2, 3})))
-		df1.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("b", []int{10, 20, 30})))
+    func main() {
+    	df1 := goframe.NewDataFrame()
+    	df1.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("a", []int{1, 2, 3})))
+    	df1.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("b", []int{10, 20, 30})))
 
-		df2 := goframe.NewDataFrame()
-		df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("a", []int{4, 5, 6})))
-		df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("b", []int{40, 50, 60})))
+    	df2 := goframe.NewDataFrame()
+    	df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("a", []int{4, 5, 6})))
+    	df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("b", []int{40, 50, 60})))
 
-		// Add the two dataframes element-wise (numeric columns are summed)
-		summed, err := df1.Add(df2)
-		if err != nil {
-			log.Fatal(err)
-		}
+    	// Add the two dataframes element-wise (numeric columns are summed)
+    	summed, err := df1.Add(df2)
+    	if err != nil {
+    		log.Fatal(err)
+    	}
 
-		fmt.Println("Summed DataFrame:")
-		fmt.Println(summed)
-	}
-	```
-
-
+    	fmt.Println("Summed DataFrame:")
+    	fmt.Println(summed)
+    }
+    ```
 
 ### Row Operations
 
@@ -209,7 +207,9 @@ func main() {
 	fmt.Println("After dropping a row:", df)
 }
 ```
+
 ### Multiple Column Selection
+
 ```go
 func main() {
 	df := goframe.NewDataFrame()
@@ -223,6 +223,7 @@ func main() {
 	fmt.Println("The DataFrame with selected columns: ", selectedDf.String())
 }
 ```
+
 ### Renaming Columns
 
 ```go
@@ -375,7 +376,7 @@ We welcome contributions from the community! If you'd like to contribute:
 
 1. Fork the repository.
 2. Create a new branch for your feature or bug fix.
-3. After the implementation/fix, run ``` go test ./goframe_tests ``` and ensure all tests pass.
+3. After the implementation/fix, run `go test ./goframe_tests` and ensure all tests pass.
 4. Submit a pull request with a clear description of your changes.
 
 Please ensure your code adheres to the project's coding standards and includes tests for any new functionality.
@@ -387,8 +388,6 @@ Please ensure your code adheres to the project's coding standards and includes t
 <a href="https://github.com/kishyassin/goframe/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=kishyassin/goframe" />
 </a>
-
-
 
 ## License
 
