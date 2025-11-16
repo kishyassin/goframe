@@ -108,6 +108,75 @@ func main() {
 }
 ```
 
+### Grouping by multiple columns (Groupby list of strings)
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/kishyassin/goframe"
+)
+
+func main() {
+	df := goframe.NewDataFrame()
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("city", []string{"A", "A", "B"})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("category", []string{"x", "y", "x"})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("value", []int{10, 20, 30})))
+
+	// Group by multiple columns using a list of strings
+	gdf := df.Groupby([]string{"city", "category"})
+	if gdf.Error() != nil {
+		log.Fatal(gdf.Error())
+	}
+
+	// Aggregate (sum) the "value" column for each group
+	summed, err := gdf.Sum("value")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Grouped and summed:")
+	fmt.Println(summed)
+}
+```
+
+	### Adding two DataFrames (`DataFrame.Add`)
+
+	```go
+	package main
+
+	import (
+		"fmt"
+		"log"
+
+		"github.com/kishyassin/goframe"
+	)
+
+	func main() {
+		df1 := goframe.NewDataFrame()
+		df1.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("a", []int{1, 2, 3})))
+		df1.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("b", []int{10, 20, 30})))
+
+		df2 := goframe.NewDataFrame()
+		df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("a", []int{4, 5, 6})))
+		df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("b", []int{40, 50, 60})))
+
+		// Add the two dataframes element-wise (numeric columns are summed)
+		summed, err := df1.Add(df2)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println("Summed DataFrame:")
+		fmt.Println(summed)
+	}
+	```
+
+
+
 ### Row Operations
 
 ```go
