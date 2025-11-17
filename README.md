@@ -143,37 +143,37 @@ func main() {
 }
 ```
 
-    ### Adding two DataFrames (`DataFrame.Add`)
+### Adding two DataFrames (`DataFrame.Add`)
 
-    ```go
-    package main
+```go
+package main
 
-    import (
-    	"fmt"
-    	"log"
+import (
+	"fmt"
+    "log"
 
-    	"github.com/kishyassin/goframe"
-    )
+    "github.com/kishyassin/goframe"
+)
 
-    func main() {
-    	df1 := goframe.NewDataFrame()
-    	df1.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("a", []int{1, 2, 3})))
-    	df1.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("b", []int{10, 20, 30})))
+func main() {
+	df1 := goframe.NewDataFrame()
+	df1.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("a", []int{1, 2, 3})))
+	df1.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("b", []int{10, 20, 30})))
 
-    	df2 := goframe.NewDataFrame()
-    	df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("a", []int{4, 5, 6})))
-    	df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("b", []int{40, 50, 60})))
+	df2 := goframe.NewDataFrame()
+	df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("a", []int{4, 5, 6})))
+    df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("b", []int{40, 50, 60})))
 
-    	// Add the two dataframes element-wise (numeric columns are summed)
-    	summed, err := df1.Add(df2)
-    	if err != nil {
-    		log.Fatal(err)
-    	}
-
-    	fmt.Println("Summed DataFrame:")
-    	fmt.Println(summed)
+	// Add the two dataframes element-wise (numeric columns are summed)
+    summed, err := df1.Add(df2)
+    if err != nil {
+		log.Fatal(err)
     }
-    ```
+
+	fmt.Println("Summed DataFrame:")
+	fmt.Println(summed)
+}
+```
 
 ### Row Operations
 
