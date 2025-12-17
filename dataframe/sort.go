@@ -59,6 +59,9 @@ func (s DataFrameSorter) Less(i, j int) bool {
 // Parameters:
 //   - by : The column name to sort by.
 //   - ascending (optional) : The order of the values to sort by.
+//     True = Ascending,
+//     False = Descending
+//     If it is not declared by user, it will be ascending by default.
 //
 // Returns:
 //   - *DataFrame: The sorted DataFrame, returns an empty dataframe if there is an error.
