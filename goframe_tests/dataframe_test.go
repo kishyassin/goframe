@@ -1314,6 +1314,70 @@ func TestApply(t *testing.T) {
 	})
 }
 
+// MARK: SortValues Test
+func TestDataFrameSortValues(t *testing.T) {
+	df := goframe.NewDataFrame()
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("name", []string{"Charlie", "Alice", "Bob"})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("age", []int{35, 25, 30})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("score", []float64{90.5, 95.0, 88.0})))
+
+	// Test ascending sort by 'age'
+	t.Run("AscendingSortByAge", func(t *testing.T) {
+		sortedDf, err := df.SortValues("age") // ascending is default true
+		if err != nil {
+			t.Fatalf("SortValues failed: %v", err)
+		}
+
+		// Expected order after sort: Alice (25), Bob (30), Charlie (35)
+		expectedAges := []int{25, 30, 35}
+		expectedNames := []string{"Alice", "Bob", "Charlie"}
+
+		ageCol, _ := sortedDf.Select("age")
+		nameCol, _ := sortedDf.Select("name")
+
+		for i, val := range ageCol.Data {
+			if val.(int) != expectedAges[i] {
+				t.Errorf("Expected age at index %d to be %d, got %v", i, expectedAges[i], val)
+			}
+		}
+
+		// Check row integrity (name should match the reordered age)
+		for i, val := range nameCol.Data {
+			if val.(string) != expectedNames[i] {
+				t.Errorf("Expected name at index %d to be %s, got %v", i, expectedNames[i], val)
+			}
+		}
+	})
+
+	// Test descending sort by 'score'
+	t.Run("DescendingSortByScore", func(t *testing.T) {
+		sortedDf, err := df.SortValues("score", false) // false for descending
+		if err != nil {
+			t.Fatalf("SortValues failed: %v", err)
+		}
+
+		// Expected order after sort: Alice (95.0), Charlie (90.5), Bob (88.0)
+		expectedScores := []float64{95.0, 90.5, 88.0}
+		expectedNames := []string{"Alice", "Charlie", "Bob"}
+
+		scoreCol, _ := sortedDf.Select("score")
+		nameCol, _ := sortedDf.Select("name")
+
+		for i, val := range scoreCol.Data {
+			if val.(float64) != expectedScores[i] {
+				t.Errorf("Expected score at index %d to be %v, got %v", i, expectedScores[i], val)
+			}
+		}
+
+		// Check row integrity
+		for i, val := range nameCol.Data {
+			if val.(string) != expectedNames[i] {
+				t.Errorf("Expected name at index %d to be %s, got %v", i, expectedNames[i], val)
+			}
+		}
+	})
+}
+
 // MARK: Helper Functions
 
 /*
