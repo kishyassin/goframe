@@ -44,7 +44,7 @@ func main() {
 
 	// Add columns to the DataFrame
 	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie"})))
-	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("age", []int{25, 30, 35}))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("age", []int{25, 30, 35})))
 
 	// Print the DataFrame
 	fmt.Println(df)
