@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	goframe "github.com/kishyassin/goframe/dataframe"
+	goframe "github.com/kishyassin/goframe"
 )
 
 func TestColumnBasic(t *testing.T) {

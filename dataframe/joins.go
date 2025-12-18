@@ -1,4 +1,4 @@
-package goframe
+package dataframe
 
 import "reflect"
 

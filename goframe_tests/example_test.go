@@ -3,7 +3,7 @@ package goframe_test
 import (
 	"fmt"
 
-	goframe "github.com/kishyassin/goframe/dataframe"
+	goframe "github.com/kishyassin/goframe"
 )
 
 // ExampleNewDataFrame demonstrates how to create a new DataFrame.

@@ -1,9 +1,9 @@
-// Package goframe provides a simple and flexible framework for working with tabular data in Go.
+// Package dataframe provides a simple and flexible framework for working with tabular data in Go.
 // It includes support for creating, manipulating, and analyzing data frames, as well as exporting
 // and importing data from CSV files. The package is designed to be type-safe and easy to use,
 // making it suitable for data analysis, machine learning, and general data processing tasks.
 
-package goframe
+package dataframe
 
 import (
 	"fmt"
