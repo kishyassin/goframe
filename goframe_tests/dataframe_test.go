@@ -1323,7 +1323,7 @@ func TestDataFrameSortValues(t *testing.T) {
 
 	// Test ascending sort by 'age'
 	t.Run("AscendingSortByAge", func(t *testing.T) {
-		sortedDf, err := df.SortValues("age") // ascending is default true
+		sortedDf, err := df.SortValues([]string{"age"}) // ascending is default true
 		if err != nil {
 			t.Fatalf("SortValues failed: %v", err)
 		}
@@ -1351,7 +1351,7 @@ func TestDataFrameSortValues(t *testing.T) {
 
 	// Test descending sort by 'score'
 	t.Run("DescendingSortByScore", func(t *testing.T) {
-		sortedDf, err := df.SortValues("score", false) // false for descending
+		sortedDf, err := df.SortValues([]string{"score"}, false) // false for descending
 		if err != nil {
 			t.Fatalf("SortValues failed: %v", err)
 		}
@@ -1370,6 +1370,81 @@ func TestDataFrameSortValues(t *testing.T) {
 		}
 
 		// Check row integrity
+		for i, val := range nameCol.Data {
+			if val.(string) != expectedNames[i] {
+				t.Errorf("Expected name at index %d to be %s, got %v", i, expectedNames[i], val)
+			}
+		}
+	})
+
+	t.Run("Multiple Columns", func(t *testing.T) {
+
+		df2 := goframe.NewDataFrame()
+		// mixed data with a nil in the middle
+		df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("name", []string{"Alice", "Charlie", "David"})))
+		df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("score", []any{95.0, 95.0, 70.0})))
+		df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("score2", []any{85.0, 80.0, 70.0})))
+
+		sortedDf, err := df2.SortValues([]string{"score", "score2"}, true) // false for descending
+		if err != nil {
+			t.Fatalf("SortValues failed: %v", err)
+		}
+
+		// expected order after sort: Charlie (95.0), Alice (95.0), David (88.0)
+		// Charlie and Alice swapped due to the second column "score2" where charlie has a lesser score
+		expectedScores := []float64{70.0, 95.0, 95.0}
+		expectedScores2 := []float64{70.0, 80.0, 85.0}
+		expectedNames := []string{"David", "Charlie", "Alice"}
+
+		scoreCol, _ := sortedDf.Select("score")
+		scoreCol2, _ := sortedDf.Select("score2")
+		nameCol, _ := sortedDf.Select("name")
+
+		for i, val := range scoreCol.Data {
+			if val.(float64) != expectedScores[i] {
+				t.Errorf("Expected score at index %d to be %v, got %v", i, expectedScores[i], val)
+			}
+		}
+
+		for i, val := range scoreCol2.Data {
+			if val.(float64) != expectedScores2[i] {
+				t.Errorf("Expected score2 at index %d to be %v, got %v", i, expectedScores2[i], val)
+			}
+		}
+
+		// Check row integrity
+		for i, val := range nameCol.Data {
+			if val.(string) != expectedNames[i] {
+				t.Errorf("Expected name at index %d to be %s, got %v", i, expectedNames[i], val)
+			}
+		}
+	})
+
+	t.Run("Nil Values", func(t *testing.T) {
+		df2 := goframe.NewDataFrame()
+		// mixed data with a nil in the middle
+		df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie", "David"})))
+		df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("score", []any{95.0, nil, 88.0, 70.0})))
+
+		// sort ascending
+		sortedDf, err := df2.SortValues([]string{"score"}, true)
+		if err != nil {
+			t.Fatalf("SortValues failed: %v", err)
+		}
+
+		expectedScores := []any{70.0, 88.0, 95.0, nil}
+		expectedNames := []string{"David", "Charlie", "Alice", "Bob"}
+
+		scoreCol, _ := sortedDf.Select("score")
+		nameCol, _ := sortedDf.Select("name")
+
+		for i, val := range scoreCol.Data {
+			if val != expectedScores[i] {
+				t.Errorf("Expected score at index %d to be %v, got %v", i, expectedScores[i], val)
+			}
+		}
+
+		// check row integrity
 		for i, val := range nameCol.Data {
 			if val.(string) != expectedNames[i] {
 				t.Errorf("Expected name at index %d to be %s, got %v", i, expectedNames[i], val)
