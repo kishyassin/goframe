@@ -104,6 +104,7 @@ func (df *DataFrame) MultiSelect(name ...string) (*DataFrame, error) {
 //   - map[string]any: A map representing the row, with column names as keys.
 //   - error: An error if the index is out of bounds.
 func (df *DataFrame) Row(index int) (map[string]any, error) {
+
 	if index < 0 || index >= df.Nrows() {
 		return nil, fmt.Errorf("index out of bounds")
 	}
@@ -118,7 +119,39 @@ func (df *DataFrame) Row(index int) (map[string]any, error) {
 	}
 	return row, nil
 }
+// RowSlice returns a new DataFrame containing rows from startIndex to endIndex (end exclusive).
+func (df *DataFrame) RowSlice(startIndex, endIndex int) *DataFrame {
+	newDf := NewDataFrame()
 
+	for name := range df.Columns {
+		newDf.Columns[name] = &Column[any]{
+			Name: name,
+			Data: []any{},
+		}
+	}
+
+	if startIndex < 0 {
+		startIndex = 0
+	}
+	if endIndex > df.Nrows() {
+		endIndex = df.Nrows()
+	}
+	if startIndex >= endIndex {
+		return newDf
+	}
+
+	for i := startIndex; i < endIndex; i++ {
+		row, err := df.Row(i)
+		if err != nil {
+			continue
+		}
+		_ = newDf.AppendRow(newDf, row)
+	}
+
+	return newDf
+}
+
+	
 // Filter returns a new DataFrame with rows that satisfy the given condition.
 //
 // Parameters:
