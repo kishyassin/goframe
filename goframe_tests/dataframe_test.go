@@ -1378,6 +1378,295 @@ func TestDataFrameSortValues(t *testing.T) {
 	})
 }
 
+// MARK: DropDuplicates
+func TestDropDuplicates(t *testing.T) {
+	// This helper returns a fresh DF every time it is called
+	setupDF := func() *goframe.DataFrame {
+		df := goframe.NewDataFrame()
+		df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("name", []string{"Charlie", "Alice", "Alice"})))
+		df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("age", []int{35, 25, 25})))
+		df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("score", []float64{90.5, 95.0, 95.0})))
+		return df
+	}
+	t.Run("DefaultOptionsTest", func(t *testing.T) {
+		df := setupDF()
+		finalDf, err := df.DropDuplicates()
+		if err != nil {
+			t.Errorf("Error executing DropDuplicates method, %v", err)
+		}
+
+		expectedNames := []string{"Charlie", "Alice"}
+		expectedAge := []int{35, 25}
+		expectedScores := []float64{90.5, 95.0}
+
+		scoreCol, _ := finalDf.Select("score")
+		nameCol, _ := finalDf.Select("name")
+		ageCol, _ := finalDf.Select("age")
+		numberOfRows := finalDf.Nrows()
+
+		if numberOfRows != 2 {
+			t.Errorf("Expected 2 rows but got %v", numberOfRows)
+		}
+
+		for i, val := range scoreCol.Data {
+			if val.(float64) != expectedScores[i] {
+				t.Errorf("Expected score at index %d to be %v, got %v", i, expectedScores[i], val)
+			}
+		}
+
+		for i, val := range nameCol.Data {
+			if val.(string) != expectedNames[i] {
+				t.Errorf("Expected name at index %d to be %s, got %v", i, expectedNames[i], val)
+			}
+		}
+
+		for i, val := range ageCol.Data {
+			if val.(int) != expectedAge[i] {
+				t.Errorf("Expected age at index %d to be %v, got %v", i, expectedAge[i], val)
+			}
+		}
+	})
+
+	t.Run("Subset Option", func(t *testing.T) {
+
+		df2 := goframe.NewDataFrame()
+		df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("name", []string{"Charlie", "Alice", "Bob"})))
+		df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("age", []int{35, 25, 25}))) // age is the same for both Alice and Bob
+		df2.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("score", []float64{90.5, 95.0, 80.0})))
+
+		dropDuplicateOption := goframe.DropDuplicatesOption{
+			Subset: []string{"age"},
+		}
+		finalDf, err := df2.DropDuplicates(dropDuplicateOption)
+		if err != nil {
+			t.Errorf("Error executing DropDuplicates method, %v", err)
+		}
+
+		expectedNames := []string{"Charlie", "Alice"}
+		expectedAge := []int{35, 25}
+		expectedScores := []float64{90.5, 95.0}
+
+		scoreCol, _ := finalDf.Select("score")
+		nameCol, _ := finalDf.Select("name")
+		ageCol, _ := finalDf.Select("age")
+		numberOfRows := finalDf.Nrows()
+
+		if numberOfRows != 2 {
+			t.Errorf("Expected 1 row but got %v", numberOfRows)
+		}
+
+		if len(scoreCol.Data) != len(expectedScores) {
+			t.Fatalf("Column length mismatch: got %d, want %d", len(scoreCol.Data), len(expectedScores))
+		}
+
+		for i, val := range scoreCol.Data {
+			if val.(float64) != expectedScores[i] {
+				t.Errorf("Expected score at index %d to be %v, got %v", i, expectedScores[i], val)
+			}
+		}
+
+		for i, val := range nameCol.Data {
+			if val.(string) != expectedNames[i] {
+				t.Errorf("Expected name at index %d to be %s, got %v", i, expectedNames[i], val)
+			}
+		}
+
+		for i, val := range ageCol.Data {
+			if val.(int) != expectedAge[i] {
+				t.Errorf("Expected age at index %d to be %v, got %v", i, expectedAge[i], val)
+			}
+		}
+	})
+
+	//
+	t.Run("KeepOptions", func(t *testing.T) {
+		df := setupDF()
+		df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("index", []int{0, 1, 2})))
+		t.Run("KeepFirst", func(t *testing.T) {
+			dropDuplicateOption := goframe.DropDuplicatesOption{
+				Keep:   "first",
+				Subset: []string{"name", "age", "score"},
+			}
+			finalDf, err := df.DropDuplicates(dropDuplicateOption)
+			if err != nil {
+				t.Errorf("Error executing DropDuplicates method, %v", err)
+			}
+
+			expectedNames := []string{"Charlie", "Alice"}
+			expectedAge := []int{35, 25}
+			expectedScores := []float64{90.5, 95.0}
+			expectedIndex := []int{0, 1}
+
+			scoreCol, _ := finalDf.Select("score")
+			nameCol, _ := finalDf.Select("name")
+			ageCol, _ := finalDf.Select("age")
+			indexCol, _ := finalDf.Select("index")
+			numberOfRows := finalDf.Nrows()
+
+			expectedRows := 2
+
+			if numberOfRows != 2 {
+				t.Errorf("Expected 2 rows but got %v", numberOfRows)
+			}
+
+			for i := range expectedRows {
+				// Name check
+				if nameCol.Data[i].(string) != expectedNames[i] {
+					t.Errorf("Index %d: expected name %s, got %v", i, expectedNames[i], nameCol.Data[i])
+				}
+				// Age check
+				if ageCol.Data[i].(int) != expectedAge[i] {
+					t.Errorf("Index %d: expected age %d, got %v", i, expectedAge[i], ageCol.Data[i])
+				}
+				// Score check
+				if scoreCol.Data[i].(float64) != expectedScores[i] {
+					t.Errorf("Index %d: expected score %v, got %v", i, expectedScores[i], scoreCol.Data[i])
+				}
+				// Index check
+				if indexCol.Data[i].(int) != expectedIndex[i] {
+					t.Errorf("Index %d: expected original index %d, got %v", i, expectedIndex[i], indexCol.Data[i])
+				}
+			}
+		})
+
+		t.Run("KeepLast", func(t *testing.T) {
+			dropDuplicateOption := goframe.DropDuplicatesOption{
+				Keep:   "last",
+				Subset: []string{"name", "age", "score"},
+			}
+			finalDf, err := df.DropDuplicates(dropDuplicateOption)
+			if err != nil {
+				t.Errorf("Error executing DropDuplicates method, %v", err)
+			}
+
+			expectedNames := []string{"Charlie", "Alice"}
+			expectedAge := []int{35, 25}
+			expectedScores := []float64{90.5, 95.0}
+			expectedIndex := []int{0, 2}
+
+			scoreCol, _ := finalDf.Select("score")
+			nameCol, _ := finalDf.Select("name")
+			ageCol, _ := finalDf.Select("age")
+			indexCol, _ := finalDf.Select("index")
+			numberOfRows := finalDf.Nrows()
+
+			expectedRows := 2
+
+			if numberOfRows != 2 {
+				t.Errorf("Expected 2 rows but got %v", numberOfRows)
+			}
+
+			for i := range expectedRows {
+				// Name check
+				if nameCol.Data[i].(string) != expectedNames[i] {
+					t.Errorf("Index %d: expected name %s, got %v", i, expectedNames[i], nameCol.Data[i])
+				}
+				// Age check
+				if ageCol.Data[i].(int) != expectedAge[i] {
+					t.Errorf("Index %d: expected age %d, got %v", i, expectedAge[i], ageCol.Data[i])
+				}
+				// Score check
+				if scoreCol.Data[i].(float64) != expectedScores[i] {
+					t.Errorf("Index %d: expected score %v, got %v", i, expectedScores[i], scoreCol.Data[i])
+				}
+				// Index check
+				if indexCol.Data[i].(int) != expectedIndex[i] {
+					t.Errorf("Index %d: expected original index %d, got %v", i, expectedIndex[i], indexCol.Data[i])
+				}
+			}
+		})
+
+		t.Run("KeepNone", func(t *testing.T) {
+			dropDuplicateOption := goframe.DropDuplicatesOption{
+				Keep:   "none",
+				Subset: []string{"name", "age", "score"},
+			}
+			finalDf, err := df.DropDuplicates(dropDuplicateOption)
+			if err != nil {
+				t.Errorf("Error executing DropDuplicates method, %v", err)
+			}
+
+			expectedNames := []string{"Charlie"}
+			expectedAge := []int{35}
+			expectedScores := []float64{90.5}
+			expectedIndex := []int{0}
+
+			scoreCol, _ := finalDf.Select("score")
+			nameCol, _ := finalDf.Select("name")
+			ageCol, _ := finalDf.Select("age")
+			indexCol, _ := finalDf.Select("index")
+			numberOfRows := finalDf.Nrows()
+
+			expectedRows := 1
+
+			if numberOfRows != 1 {
+				t.Errorf("Expected 1 row but got %v", numberOfRows)
+			}
+
+			for i := range expectedRows {
+				// Name check
+				if nameCol.Data[i].(string) != expectedNames[i] {
+					t.Errorf("Index %d: expected name %s, got %v", i, expectedNames[i], nameCol.Data[i])
+				}
+				// Age check
+				if ageCol.Data[i].(int) != expectedAge[i] {
+					t.Errorf("Index %d: expected age %d, got %v", i, expectedAge[i], ageCol.Data[i])
+				}
+				// Score check
+				if scoreCol.Data[i].(float64) != expectedScores[i] {
+					t.Errorf("Index %d: expected score %v, got %v", i, expectedScores[i], scoreCol.Data[i])
+				}
+				// Index check
+				if indexCol.Data[i].(int) != expectedIndex[i] {
+					t.Errorf("Index %d: expected original index %d, got %v", i, expectedIndex[i], indexCol.Data[i])
+				}
+			}
+		})
+	})
+
+	t.Run("InplaceTrue_ModifiesOriginal", func(t *testing.T) {
+		df := setupDF()
+
+		_, err := df.DropDuplicates(goframe.DropDuplicatesOption{Inplace: true})
+		if err != nil {
+			t.Fatalf("Operation failed: %v", err)
+		}
+
+		// check 1: the original 'df' variable must now have fewer rows
+		expectedRows := 2
+		if df.Nrows() != expectedRows {
+			t.Errorf("Expected original DF to be modified to %d rows, but got %d", expectedRows, df.Nrows())
+		}
+
+		// check 2: verify the data inside the original 'df' is the cleaned data
+		nameCol, _ := df.Select("name")
+		if len(nameCol.Data) != expectedRows {
+			t.Errorf("Original column data length mismatch: expected %d, got %d", expectedRows, len(nameCol.Data))
+		}
+
+	})
+
+	t.Run("InplaceFalse_PreservesOriginal", func(t *testing.T) {
+		df := setupDF() // Start with 3 rows
+
+		newDf, err := df.DropDuplicates(goframe.DropDuplicatesOption{Inplace: false})
+		if err != nil {
+			t.Fatalf("Operation failed: %v", err)
+		}
+
+		// check 1: the new DataFrame should be cleaned (2 rows)
+		if newDf.Nrows() != 2 {
+			t.Errorf("New DataFrame expected 2 rows, got %d", newDf.Nrows())
+		}
+
+		// check 2: the original DataFrame MUST still have 3 rows
+		if df.Nrows() != 3 {
+			t.Errorf("Original DataFrame was accidentally modified! Expected 3 rows, got %d", df.Nrows())
+		}
+	})
+
+}
+
 // MARK: Helper Functions
 
 /*
