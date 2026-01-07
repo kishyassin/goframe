@@ -18,6 +18,7 @@ type GroupedDataFrame = df.GroupedDataFrame
 type DataFrameSorter = df.DataFrameSorter
 type FuncType = df.FuncType
 type DropDuplicatesOption = df.DropDuplicatesOption
+type SQLWriteOption = df.SQLWriteOption
 
 // Column is re-exported as a generic type alias
 type Column[T any] = df.Column[T]
