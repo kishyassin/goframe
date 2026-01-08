@@ -4,7 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
+	"slices"
 	"strings"
+	"time"
 )
 
 // SQLReadOption configures how data is read from a database
@@ -111,6 +114,16 @@ func fromSQLRows(rows *sql.Rows, options ...SQLReadOption) (*DataFrame, error) {
 				}
 				return nil, err
 			}
+
+			// Apply date parsing if column is in ParseDates slice
+			if len(opts.ParseDates) > 0 && slices.Contains(opts.ParseDates, colName) {
+				parsedDate, err := parseDateValue(value)
+				if err != nil {
+					return nil, fmt.Errorf("error parsing date for column %s: %w", colName, err)
+				}
+				value = parsedDate
+			}
+
 			rowValues[i] = value
 		}
 
@@ -137,7 +150,10 @@ func fromSQLRows(rows *sql.Rows, options ...SQLReadOption) (*DataFrame, error) {
 
 		// Create and add column
 		col := NewColumn(colName, colData)
-		df.AddColumn(col)
+		err = df.AddColumn(col)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return df, nil
@@ -257,4 +273,63 @@ func handleNull(colName string, nullHandler any, dest any) (any, error) {
 	default:
 		return nil, fmt.Errorf("invalid null handler type: %T", nullHandler)
 	}
+}
+
+// parseDateValue attempts to parse a value as time.Time
+// Supports: time.Time (pass-through), string (various formats), int64 (Unix timestamp), float64 (Unix timestamp)
+func parseDateValue(value any) (time.Time, error) {
+	if value == nil {
+		return time.Time{}, nil // Return zero time for nil
+	}
+
+	switch v := value.(type) {
+	case time.Time:
+		// Already a time.Time, return as-is
+		return v, nil
+
+	case string:
+		// Try common date/time formats
+		formats := []string{
+			time.RFC3339,                 // "2006-01-02T15:04:05Z07:00"
+			time.RFC3339Nano,             // "2006-01-02T15:04:05.999999999Z07:00"
+			"2006-01-02 15:04:05",        // SQLite DATETIME format
+			"2006-01-02",                 // Date only
+			"2006-01-02 15:04:05.999999", // With microseconds
+			time.RFC1123,                 // "Mon, 02 Jan 2006 15:04:05 MST"
+			time.RFC822,                  // "02 Jan 06 15:04 MST"
+		}
+
+		for _, format := range formats {
+			if t, err := time.Parse(format, v); err == nil {
+				return t, nil
+			}
+		}
+		return time.Time{}, fmt.Errorf("unable to parse date string: %s", v)
+
+	case int64:
+		return time.Unix(v, 0), nil
+
+	case int:
+		return time.Unix(int64(v), 0), nil
+
+	case float64:
+		// Use heuristic to determine if milliseconds or seconds
+		return timeFromFloat64(v), nil
+
+	default:
+		return time.Time{}, fmt.Errorf("unsupported type for date parsing: %T", value)
+	}
+}
+
+// timeFromFloat64 converts a float64 timestamp to time.Time
+// Uses heuristic to determine if value is in milliseconds or seconds
+func timeFromFloat64(v float64) time.Time {
+	// Heuristic: milliseconds vs seconds
+	if v > 1e12 || v < -1e12 {
+		return time.UnixMilli(int64(v))
+	}
+	// seconds with fractional part
+	sec, frac := math.Modf(v)
+	nanos := int64(math.Round(frac * 1e9))
+	return time.Unix(int64(sec), nanos)
 }
