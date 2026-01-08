@@ -3,6 +3,7 @@ package dataframe
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -189,7 +190,7 @@ func tableExistsTx(ctx context.Context, tx *sql.Tx, tableName string, dialect SQ
 	query := dialect.TableExistsSQL()
 	var name string
 	err := tx.QueryRowContext(ctx, query, tableName).Scan(&name)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
 	if err != nil {
