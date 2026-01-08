@@ -23,7 +23,7 @@ type SQLDialect interface {
 	CreateTableSQL(tableName string, columns map[string]string) string
 
 	// TableExistsSQL returns a query to check if a table exists
-	TableExistsSQL(tableName string) string
+	TableExistsSQL() string
 }
 
 // SQLiteDialect implements SQLDialect for SQLite databases
@@ -75,8 +75,8 @@ func (d *SQLiteDialect) CreateTableSQL(tableName string, columns map[string]stri
 	return fmt.Sprintf("CREATE TABLE %s (%s)", d.QuoteIdentifier(tableName), strings.Join(columnDefs, ", "))
 }
 
-// TableExistsSQL returns a query to check if a table exists in SQLite
-func (d *SQLiteDialect) TableExistsSQL(tableName string) string {
+// TableExistsSQL returns a query with correct placeholder to check if a table exists in SQLite
+func (d *SQLiteDialect) TableExistsSQL() string {
 	return fmt.Sprintf("SELECT name FROM sqlite_master WHERE type='table' AND name=%s", d.Placeholder(1))
 }
 
@@ -134,8 +134,8 @@ func (d *PostgresDialect) CreateTableSQL(tableName string, columns map[string]st
 	return fmt.Sprintf("CREATE TABLE %s (%s)", d.QuoteIdentifier(tableName), strings.Join(columnDefs, ", "))
 }
 
-// TableExistsSQL returns a query to check if a table exists in PostgreSQL
-func (d *PostgresDialect) TableExistsSQL(tableName string) string {
+// TableExistsSQL returns a query with correct placeholder to check if a table exists in PostgreSQL
+func (d *PostgresDialect) TableExistsSQL() string {
 	return fmt.Sprintf("SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename=%s", d.Placeholder(1))
 }
 
@@ -192,7 +192,7 @@ func (d *MySQLDialect) CreateTableSQL(tableName string, columns map[string]strin
 	return fmt.Sprintf("CREATE TABLE %s (%s)", d.QuoteIdentifier(tableName), strings.Join(columnDefs, ", "))
 }
 
-// TableExistsSQL returns a query to check if a table exists in MySQL
-func (d *MySQLDialect) TableExistsSQL(tableName string) string {
+// TableExistsSQL returns a query with correct placeholder to check if a table exists in MySQL
+func (d *MySQLDialect) TableExistsSQL() string {
 	return fmt.Sprintf("SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=%s", d.Placeholder(1))
 }
