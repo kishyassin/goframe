@@ -1,17 +1,14 @@
 package goframe_test
 
 import (
-	"database/sql"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/kishyassin/goframe/dataframe"
-	_ "github.com/mattn/go-sqlite3"
 )
 
-// TestGoTypeToSQLType_SQLite tests SQLite type mapping
-func TestGoTypeToSQLType_SQLite(t *testing.T) {
 	dialect := &dataframe.SQLiteDialect{}
 
 	tests := []struct {
@@ -19,6 +16,7 @@ func TestGoTypeToSQLType_SQLite(t *testing.T) {
 		goType   reflect.Type
 		expected string
 	}{
+		// Integer types
 		{"int", reflect.TypeOf(int(0)), "INTEGER"},
 		{"int8", reflect.TypeOf(int8(0)), "INTEGER"},
 		{"int16", reflect.TypeOf(int16(0)), "INTEGER"},
@@ -29,29 +27,45 @@ func TestGoTypeToSQLType_SQLite(t *testing.T) {
 		{"uint16", reflect.TypeOf(uint16(0)), "INTEGER"},
 		{"uint32", reflect.TypeOf(uint32(0)), "INTEGER"},
 		{"uint64", reflect.TypeOf(uint64(0)), "INTEGER"},
+
+		// Float types
 		{"float32", reflect.TypeOf(float32(0)), "REAL"},
 		{"float64", reflect.TypeOf(float64(0)), "REAL"},
+
+		// String type
 		{"string", reflect.TypeOf(""), "TEXT"},
-		{"bool", reflect.TypeOf(true), "INTEGER"},
+
+		// Bool type
+		{"bool", reflect.TypeOf(false), "INTEGER"},
+
+		// Time type
 		{"time.Time", reflect.TypeOf(time.Time{}), "TIMESTAMP"},
-		{"pointer to int", reflect.TypeOf((*int)(nil)), "INTEGER"},
-		{"pointer to string", reflect.TypeOf((*string)(nil)), "TEXT"},
-		{"pointer to time", reflect.TypeOf((*time.Time)(nil)), "TIMESTAMP"},
-		{"unknown type", reflect.TypeOf(struct{}{}), "TEXT"},
+
+		// Pointer types
+		{"*int", reflect.TypeOf(new(int)), "INTEGER"},
+		{"*float64", reflect.TypeOf(new(float64)), "REAL"},
+		{"*string", reflect.TypeOf(new(string)), "TEXT"},
+		{"*bool", reflect.TypeOf(new(bool)), "INTEGER"},
+		{"*time.Time", reflect.TypeOf(new(time.Time)), "TIMESTAMP"},
+
+		// Unknown types
+		{"struct", reflect.TypeOf(struct{}{}), "TEXT"},
+		{"slice", reflect.TypeOf([]int{}), "TEXT"},
+		{"map", reflect.TypeOf(map[string]int{}), "TEXT"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := dialect.GoTypeToSQLType(tt.goType)
 			if result != tt.expected {
-				t.Errorf("GoTypeToSQLType(%v) = %s, expected %s", tt.goType, result, tt.expected)
+				t.Errorf("GoTypeToSQLType(%v) = %q, want %q", tt.goType, result, tt.expected)
 			}
 		})
 	}
 }
 
-// TestGoTypeToSQLType_Postgres tests PostgreSQL type mapping
-func TestGoTypeToSQLType_Postgres(t *testing.T) {
+// TestPostgresDialect_GoTypeToSQLType tests PostgreSQL type mapping with table-driven tests
+func TestPostgresDialect_GoTypeToSQLType(t *testing.T) {
 	dialect := &dataframe.PostgresDialect{}
 
 	tests := []struct {
@@ -59,6 +73,7 @@ func TestGoTypeToSQLType_Postgres(t *testing.T) {
 		goType   reflect.Type
 		expected string
 	}{
+		// Integer types
 		{"int", reflect.TypeOf(int(0)), "INTEGER"},
 		{"int8", reflect.TypeOf(int8(0)), "INTEGER"},
 		{"int16", reflect.TypeOf(int16(0)), "INTEGER"},
@@ -69,29 +84,43 @@ func TestGoTypeToSQLType_Postgres(t *testing.T) {
 		{"uint16", reflect.TypeOf(uint16(0)), "INTEGER"},
 		{"uint32", reflect.TypeOf(uint32(0)), "BIGINT"},
 		{"uint64", reflect.TypeOf(uint64(0)), "BIGINT"},
+
+		// Float types
 		{"float32", reflect.TypeOf(float32(0)), "REAL"},
 		{"float64", reflect.TypeOf(float64(0)), "DOUBLE PRECISION"},
+
+		// String type
 		{"string", reflect.TypeOf(""), "TEXT"},
-		{"bool", reflect.TypeOf(true), "BOOLEAN"},
+
+		// Bool type
+		{"bool", reflect.TypeOf(false), "BOOLEAN"},
+
+		// Time type
 		{"time.Time", reflect.TypeOf(time.Time{}), "TIMESTAMP"},
-		{"pointer to int64", reflect.TypeOf((*int64)(nil)), "BIGINT"},
-		{"pointer to float64", reflect.TypeOf((*float64)(nil)), "DOUBLE PRECISION"},
-		{"pointer to bool", reflect.TypeOf((*bool)(nil)), "BOOLEAN"},
-		{"unknown type", reflect.TypeOf(struct{}{}), "TEXT"},
+
+		// Pointer types
+		{"*int64", reflect.TypeOf(new(int64)), "BIGINT"},
+		{"*float64", reflect.TypeOf(new(float64)), "DOUBLE PRECISION"},
+		{"*string", reflect.TypeOf(new(string)), "TEXT"},
+		{"*bool", reflect.TypeOf(new(bool)), "BOOLEAN"},
+		{"*time.Time", reflect.TypeOf(new(time.Time)), "TIMESTAMP"},
+
+		// Unknown types
+		{"struct", reflect.TypeOf(struct{}{}), "TEXT"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := dialect.GoTypeToSQLType(tt.goType)
 			if result != tt.expected {
-				t.Errorf("GoTypeToSQLType(%v) = %s, expected %s", tt.goType, result, tt.expected)
+				t.Errorf("GoTypeToSQLType(%v) = %q, want %q", tt.goType, result, tt.expected)
 			}
 		})
 	}
 }
 
-// TestGoTypeToSQLType_MySQL tests MySQL type mapping
-func TestGoTypeToSQLType_MySQL(t *testing.T) {
+// TestMySQLDialect_GoTypeToSQLType tests MySQL type mapping with table-driven tests
+func TestMySQLDialect_GoTypeToSQLType(t *testing.T) {
 	dialect := &dataframe.MySQLDialect{}
 
 	tests := []struct {
@@ -99,6 +128,7 @@ func TestGoTypeToSQLType_MySQL(t *testing.T) {
 		goType   reflect.Type
 		expected string
 	}{
+		// Integer types
 		{"int", reflect.TypeOf(int(0)), "BIGINT"},
 		{"int8", reflect.TypeOf(int8(0)), "BIGINT"},
 		{"int16", reflect.TypeOf(int16(0)), "BIGINT"},
@@ -109,104 +139,118 @@ func TestGoTypeToSQLType_MySQL(t *testing.T) {
 		{"uint16", reflect.TypeOf(uint16(0)), "INT"},
 		{"uint32", reflect.TypeOf(uint32(0)), "BIGINT"},
 		{"uint64", reflect.TypeOf(uint64(0)), "BIGINT"},
+
+		// Float types
 		{"float32", reflect.TypeOf(float32(0)), "FLOAT"},
 		{"float64", reflect.TypeOf(float64(0)), "DOUBLE"},
+
+		// String type
 		{"string", reflect.TypeOf(""), "TEXT"},
-		{"bool", reflect.TypeOf(true), "TINYINT(1)"},
+
+		// Bool type
+		{"bool", reflect.TypeOf(false), "TINYINT(1)"},
+
+		// Time type
 		{"time.Time", reflect.TypeOf(time.Time{}), "DATETIME"},
-		{"pointer to int", reflect.TypeOf((*int)(nil)), "BIGINT"},
-		{"pointer to float32", reflect.TypeOf((*float32)(nil)), "FLOAT"},
-		{"pointer to time", reflect.TypeOf((*time.Time)(nil)), "DATETIME"},
-		{"unknown type", reflect.TypeOf(struct{}{}), "TEXT"},
+
+		// Pointer types
+		{"*int64", reflect.TypeOf(new(int64)), "BIGINT"},
+		{"*float64", reflect.TypeOf(new(float64)), "DOUBLE"},
+		{"*string", reflect.TypeOf(new(string)), "TEXT"},
+		{"*bool", reflect.TypeOf(new(bool)), "TINYINT(1)"},
+		{"*time.Time", reflect.TypeOf(new(time.Time)), "DATETIME"},
+
+		// Unknown types
+		{"struct", reflect.TypeOf(struct{}{}), "TEXT"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := dialect.GoTypeToSQLType(tt.goType)
 			if result != tt.expected {
-				t.Errorf("GoTypeToSQLType(%v) = %s, expected %s", tt.goType, result, tt.expected)
+				t.Errorf("GoTypeToSQLType(%v) = %q, want %q", tt.goType, result, tt.expected)
 			}
 		})
 	}
 }
 
-// TestPlaceholder tests placeholder generation for all dialects
-func TestPlaceholder(t *testing.T) {
+// TestDialect_Placeholder tests placeholder syntax for all dialects
+func TestDialect_Placeholder(t *testing.T) {
 	tests := []struct {
 		name     string
 		dialect  dataframe.SQLDialect
-		indices  []int
-		expected []string
+		index    int
+		expected string
 	}{
-		{
-			name:     "SQLite placeholders",
-			dialect:  &dataframe.SQLiteDialect{},
-			indices:  []int{1, 2, 3, 5, 10},
-			expected: []string{"?", "?", "?", "?", "?"},
-		},
-		{
-			name:     "PostgreSQL placeholders",
-			dialect:  &dataframe.PostgresDialect{},
-			indices:  []int{1, 2, 3, 5, 10},
-			expected: []string{"$1", "$2", "$3", "$5", "$10"},
-		},
-		{
-			name:     "MySQL placeholders",
-			dialect:  &dataframe.MySQLDialect{},
-			indices:  []int{1, 2, 3, 5, 10},
-			expected: []string{"?", "?", "?", "?", "?"},
-		},
+		// SQLite
+		{"SQLite index 1", &dataframe.SQLiteDialect{}, 1, "?"},
+		{"SQLite index 5", &dataframe.SQLiteDialect{}, 5, "?"},
+		{"SQLite index 100", &dataframe.SQLiteDialect{}, 100, "?"},
+
+		// PostgreSQL
+		{"PostgreSQL index 1", &dataframe.PostgresDialect{}, 1, "$1"},
+		{"PostgreSQL index 2", &dataframe.PostgresDialect{}, 2, "$2"},
+		{"PostgreSQL index 10", &dataframe.PostgresDialect{}, 10, "$10"},
+		{"PostgreSQL index 100", &dataframe.PostgresDialect{}, 100, "$100"},
+
+		// MySQL
+		{"MySQL index 1", &dataframe.MySQLDialect{}, 1, "?"},
+		{"MySQL index 5", &dataframe.MySQLDialect{}, 5, "?"},
+		{"MySQL index 100", &dataframe.MySQLDialect{}, 100, "?"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for i, index := range tt.indices {
-				result := tt.dialect.Placeholder(index)
-				if result != tt.expected[i] {
-					t.Errorf("Placeholder(%d) = %s, expected %s", index, result, tt.expected[i])
-				}
+			result := tt.dialect.Placeholder(tt.index)
+			if result != tt.expected {
+				t.Errorf("Placeholder(%d) = %q, want %q", tt.index, result, tt.expected)
 			}
 		})
 	}
 }
 
-// TestQuoteIdentifier tests identifier quoting for all dialects
-func TestQuoteIdentifier(t *testing.T) {
+// TestDialect_QuoteIdentifier tests identifier quoting for all dialects
+func TestDialect_QuoteIdentifier(t *testing.T) {
 	tests := []struct {
 		name       string
 		dialect    dataframe.SQLDialect
 		identifier string
 		expected   string
 	}{
+		// SQLite
 		{"SQLite simple", &dataframe.SQLiteDialect{}, "users", `"users"`},
-		{"SQLite with underscore", &dataframe.SQLiteDialect{}, "user_id", `"user_id"`},
 		{"SQLite with space", &dataframe.SQLiteDialect{}, "user name", `"user name"`},
+		{"SQLite with underscore", &dataframe.SQLiteDialect{}, "user_id", `"user_id"`},
+
+		// PostgreSQL
 		{"PostgreSQL simple", &dataframe.PostgresDialect{}, "users", `"users"`},
-		{"PostgreSQL with underscore", &dataframe.PostgresDialect{}, "user_id", `"user_id"`},
 		{"PostgreSQL with space", &dataframe.PostgresDialect{}, "user name", `"user name"`},
+		{"PostgreSQL with underscore", &dataframe.PostgresDialect{}, "user_id", `"user_id"`},
+
+		// MySQL
 		{"MySQL simple", &dataframe.MySQLDialect{}, "users", "`users`"},
-		{"MySQL with underscore", &dataframe.MySQLDialect{}, "user_id", "`user_id`"},
 		{"MySQL with space", &dataframe.MySQLDialect{}, "user name", "`user name`"},
+		{"MySQL with underscore", &dataframe.MySQLDialect{}, "user_id", "`user_id`"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.dialect.QuoteIdentifier(tt.identifier)
 			if result != tt.expected {
-				t.Errorf("QuoteIdentifier(%s) = %s, expected %s", tt.identifier, result, tt.expected)
+				t.Errorf("QuoteIdentifier(%q) = %q, want %q", tt.identifier, result, tt.expected)
 			}
 		})
 	}
 }
 
-// TestCreateTableSQL tests CREATE TABLE statement generation
-func TestCreateTableSQL(t *testing.T) {
+// TestDialect_CreateTableSQL tests CREATE TABLE SQL generation
+func TestDialect_CreateTableSQL(t *testing.T) {
 	tests := []struct {
 		name      string
 		dialect   dataframe.SQLDialect
 		tableName string
 		columns   map[string]string
-		contains  []string // Substrings that should be in the result
+		contains  []string // Substrings that should be in the output
 	}{
 		{
 			name:      "SQLite simple table",
@@ -216,46 +260,72 @@ func TestCreateTableSQL(t *testing.T) {
 				"id":   "INTEGER",
 				"name": "TEXT",
 			},
-			contains: []string{"CREATE TABLE", `"users"`, `"id"`, "INTEGER", `"name"`, "TEXT"},
+			contains: []string{
+				`CREATE TABLE "users"`,
+				`"id" INTEGER`,
+				`"name" TEXT`,
+			},
 		},
 		{
-			name:      "PostgreSQL table with multiple columns",
+			name:      "PostgreSQL simple table",
 			dialect:   &dataframe.PostgresDialect{},
 			tableName: "products",
 			columns: map[string]string{
 				"id":    "BIGINT",
-				"name":  "TEXT",
 				"price": "DOUBLE PRECISION",
 			},
-			contains: []string{"CREATE TABLE", `"products"`, `"id"`, "BIGINT", `"name"`, "TEXT", `"price"`, "DOUBLE PRECISION"},
+			contains: []string{
+				`CREATE TABLE "products"`,
+				`"id" BIGINT`,
+				`"price" DOUBLE PRECISION`,
+			},
 		},
 		{
-			name:      "MySQL table with special name",
+			name:      "MySQL simple table",
 			dialect:   &dataframe.MySQLDialect{},
-			tableName: "user_orders",
+			tableName: "orders",
 			columns: map[string]string{
-				"order_id":   "BIGINT",
-				"user_id":    "BIGINT",
+				"id":         "BIGINT",
 				"created_at": "DATETIME",
 			},
-			contains: []string{"CREATE TABLE", "`user_orders`", "`order_id`", "BIGINT", "`user_id`", "`created_at`", "DATETIME"},
+			contains: []string{
+				"CREATE TABLE `orders`",
+				"`id` BIGINT",
+				"`created_at` DATETIME",
+			},
+		},
+		{
+			name:      "SQLite table with special chars",
+			dialect:   &dataframe.SQLiteDialect{},
+			tableName: "user_activity",
+			columns: map[string]string{
+				"user_id":    "INTEGER",
+				"login_time": "TIMESTAMP",
+			},
+			contains: []string{
+				`CREATE TABLE "user_activity"`,
+				`"user_id" INTEGER`,
+				`"login_time" TIMESTAMP`,
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.dialect.CreateTableSQL(tt.tableName, tt.columns)
-			for _, substring := range tt.contains {
-				if !contains(result, substring) {
-					t.Errorf("CreateTableSQL() = %s, should contain %s", result, substring)
+
+			// Check that all expected substrings are present
+			for _, substr := range tt.contains {
+				if !strings.Contains(result, substr) {
+					t.Errorf("CreateTableSQL() output missing expected substring %q\nGot: %s", substr, result)
 				}
 			}
 		})
 	}
 }
 
-// TestTableExistsSQL tests table existence check queries
-func TestTableExistsSQL(t *testing.T) {
+// TestDialect_TableExistsSQL tests table existence check queries
+func TestDialect_TableExistsSQL(t *testing.T) {
 	tests := []struct {
 		name      string
 		dialect   dataframe.SQLDialect
@@ -266,110 +336,45 @@ func TestTableExistsSQL(t *testing.T) {
 			name:      "SQLite table exists",
 			dialect:   &dataframe.SQLiteDialect{},
 			tableName: "users",
-			contains:  []string{"SELECT name FROM sqlite_master", "type='table'", "name=?"},
+			contains: []string{
+				"SELECT name FROM sqlite_master",
+				"WHERE type='table'",
+				"AND name=?",
+			},
 		},
 		{
 			name:      "PostgreSQL table exists",
 			dialect:   &dataframe.PostgresDialect{},
 			tableName: "products",
-			contains:  []string{"SELECT tablename FROM pg_tables", "schemaname='public'", "tablename=$1"},
+			contains: []string{
+				"SELECT tablename FROM pg_tables",
+				"WHERE schemaname='public'",
+				"AND tablename=$1",
+			},
 		},
 		{
 			name:      "MySQL table exists",
 			dialect:   &dataframe.MySQLDialect{},
 			tableName: "orders",
-			contains:  []string{"SELECT table_name FROM information_schema.tables", "table_schema=DATABASE()", "table_name=?"},
+			contains: []string{
+				"SELECT table_name FROM information_schema.tables",
+				"WHERE table_schema=DATABASE()",
+				"AND table_name=?",
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := tt.dialect.TableExistsSQL(tt.tableName)
-			for _, substring := range tt.contains {
-				if !contains(result, substring) {
-					t.Errorf("TableExistsSQL() = %s, should contain %s", result, substring)
+			result := tt.dialect.TableExistsSQL()
+
+			// Check that all expected substrings are present
+			for _, substr := range tt.contains {
+				if !strings.Contains(result, substr) {
+					t.Errorf("TableExistsSQL() output missing expected substring %q\nGot: %s", substr, result)
 				}
 			}
 		})
 	}
 }
 
-// TestGetDialect tests dialect selection and detection
-func TestGetDialect(t *testing.T) {
-	// Setup test database
-	db, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		t.Fatalf("Failed to open database: %v", err)
-	}
-	defer db.Close()
-
-	tests := []struct {
-		name         string
-		dialectName  string
-		expectedType string
-		expectError  bool
-	}{
-		{"explicit SQLite", "sqlite", "*dataframe.SQLiteDialect", false},
-		{"explicit SQLite3", "sqlite3", "*dataframe.SQLiteDialect", false},
-		{"explicit PostgreSQL", "postgres", "*dataframe.PostgresDialect", false},
-		{"explicit PostgreSQL variant", "postgresql", "*dataframe.PostgresDialect", false},
-		{"explicit PostgreSQL pq", "pq", "*dataframe.PostgresDialect", false},
-		{"explicit MySQL", "mysql", "*dataframe.MySQLDialect", false},
-		{"unknown dialect", "oracle", "", true},
-		{"empty string auto-detect", "", "*dataframe.SQLiteDialect", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Note: We can't directly test getDialect as it's not exported
-			// This test documents expected behavior for when/if it becomes exported
-			// For now, we test the individual dialect creation
-
-			var dialect dataframe.SQLDialect
-			var err error
-
-			switch tt.dialectName {
-			case "sqlite", "sqlite3":
-				dialect = &dataframe.SQLiteDialect{}
-			case "postgres", "postgresql", "pq":
-				dialect = &dataframe.PostgresDialect{}
-			case "mysql":
-				dialect = &dataframe.MySQLDialect{}
-			case "":
-				// Auto-detect would happen here
-				dialect = &dataframe.SQLiteDialect{}
-			default:
-				err = sql.ErrConnDone // Simulate error
-			}
-
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("Expected error for dialect %s, got nil", tt.dialectName)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Unexpected error for dialect %s: %v", tt.dialectName, err)
-				}
-				dialectType := reflect.TypeOf(dialect).String()
-				if dialectType != tt.expectedType {
-					t.Errorf("Expected dialect type %s, got %s", tt.expectedType, dialectType)
-				}
-			}
-		})
-	}
-}
-
-// Helper function to check if a string contains a substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
-		(len(s) > 0 && len(substr) > 0 && findSubstring(s, substr)))
-}
-
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
