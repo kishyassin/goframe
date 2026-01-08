@@ -9,6 +9,8 @@ import (
 	"github.com/kishyassin/goframe/dataframe"
 )
 
+// TestSQLiteDialect_GoTypeToSQLType tests SQLite type mapping with table-driven tests
+func TestSQLiteDialect_GoTypeToSQLType(t *testing.T) {
 	dialect := &dataframe.SQLiteDialect{}
 
 	tests := []struct {
@@ -377,4 +379,3 @@ func TestDialect_TableExistsSQL(t *testing.T) {
 		})
 	}
 }
-

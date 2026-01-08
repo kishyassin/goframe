@@ -138,10 +138,7 @@ func (df *DataFrame) ToSQLTxContext(ctx context.Context, tx *sql.Tx, tableName s
 			return fmt.Errorf("unknown dialect: %s (supported: sqlite, postgres, mysql)", opts.Dialect)
 		}
 	} else {
-		// Try to detect dialect from the transaction's driver
-		// This is tricky since sql.Tx doesn't expose the driver directly
-		// We'll default to SQLite and let the user specify if needed
-		dialect = &SQLiteDialect{}
+		return fmt.Errorf("no sql dialect provided (supported: sqlite, postgres, mysql)")
 	}
 
 	// Check if table exists
@@ -189,7 +186,7 @@ func (df *DataFrame) ToSQLTxContext(ctx context.Context, tx *sql.Tx, tableName s
 
 // tableExistsTx checks if a table exists in the database
 func tableExistsTx(ctx context.Context, tx *sql.Tx, tableName string, dialect SQLDialect) (bool, error) {
-	query := dialect.TableExistsSQL(tableName)
+	query := dialect.TableExistsSQL()
 	var name string
 	err := tx.QueryRowContext(ctx, query, tableName).Scan(&name)
 	if err == sql.ErrNoRows {
