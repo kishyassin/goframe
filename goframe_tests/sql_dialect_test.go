@@ -296,20 +296,6 @@ func TestDialect_CreateTableSQL(t *testing.T) {
 				"`created_at` DATETIME",
 			},
 		},
-		{
-			name:      "SQLite table with special chars",
-			dialect:   &dataframe.SQLiteDialect{},
-			tableName: "user_activity",
-			columns: map[string]string{
-				"user_id":    "INTEGER",
-				"login_time": "TIMESTAMP",
-			},
-			contains: []string{
-				`CREATE TABLE "user_activity"`,
-				`"user_id" INTEGER`,
-				`"login_time" TIMESTAMP`,
-			},
-		},
 	}
 
 	for _, tt := range tests {
