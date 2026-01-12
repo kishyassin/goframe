@@ -9,7 +9,7 @@ import (
 // It allows us to use Go's standard library sort function on the DataFrame.
 type DataFrameSorter struct {
 	df        *DataFrame
-	colName   string
+	colName   []string
 	ascending bool
 }
 
@@ -28,30 +28,58 @@ func (s DataFrameSorter) Swap(i, j int) {
 }
 
 // Less is part of sort.Interface. It compares elements i and j in the sort column.
+// returning false means that the order is incorrect and should be swapped.
+// Example: if i is less than j, it return true for ascending
 func (s DataFrameSorter) Less(i, j int) bool {
-	col := s.df.Columns[s.colName]
-	value1 := col.Data[i]
-	value2 := col.Data[j]
 
-	// try numeric comparison first (using the existing helper function)
-	float1, ok1 := toFloat(value1)
-	float2, ok2 := toFloat(value2)
+	for _, colName := range s.colName {
 
-	if ok1 && ok2 {
-		if s.ascending {
-			return float1 < float2
+		col := s.df.Columns[colName]
+		value1 := col.Data[i]
+		value2 := col.Data[j]
+
+		// check if they are nil value
+		if value1 == nil && value2 == nil {
+			continue // They are equal, move to the next column tie-breaker
 		}
-		return float1 > float2
-	}
+		if value1 == nil {
+			// returning false means they are in the wrong order and should be swapped.
+			return false // value1 is "greater" a row lower than value2
+		}
+		if value2 == nil {
+			// returning true means they are in the right order and should stay that way.
+			return true // value1 is "less" (comes first) than value2
+		}
 
-	// fallback to string comparison for non-numeric types
-	string1 := fmt.Sprintf("%v", value1)
-	string2 := fmt.Sprintf("%v", value2)
+		// try numeric comparison first (using the existing helper function)
+		float1, ok1 := toFloat(value1)
+		float2, ok2 := toFloat(value2)
 
-	if s.ascending {
-		return string1 < string2
+		if ok1 && ok2 {
+			// check if they are equal, and if they are, continue to next col
+			if float1 == float2 {
+				continue
+			}
+			if s.ascending {
+				return float1 < float2
+			}
+			return float1 > float2
+		}
+
+		// fallback to string comparison for non-numeric types
+		string1 := fmt.Sprintf("%v", value1)
+		string2 := fmt.Sprintf("%v", value2)
+		if string1 == string2 {
+			continue
+		}
+		if s.ascending {
+			return string1 < string2
+		}
+		return string1 > string2
 	}
-	return string1 > string2
+	// if everything is identical, return false
+	return false
+
 }
 
 // sort_values is a DataFrame method that sorts the columns and returns the new sorted DataFrame.
@@ -66,7 +94,7 @@ func (s DataFrameSorter) Less(i, j int) bool {
 // Returns:
 //   - *DataFrame: The sorted DataFrame, returns an empty dataframe if there is an error.
 //   - error: An error if the operation fails.
-func (df *DataFrame) SortValues(by string, ascending ...bool) (*DataFrame, error) {
+func (df *DataFrame) SortValues(by []string, ascending ...bool) (*DataFrame, error) {
 
 	// default value is ascending
 	isAscending := true
