@@ -9,9 +9,12 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
 // DataFrame represents a collection of typed columns.
@@ -119,6 +122,7 @@ func (df *DataFrame) Row(index int) (map[string]any, error) {
 	}
 	return row, nil
 }
+
 // RowSlice returns a new DataFrame containing rows from startIndex to endIndex (end exclusive).
 func (df *DataFrame) RowSlice(startIndex, endIndex int) *DataFrame {
 	newDf := NewDataFrame()
@@ -151,7 +155,6 @@ func (df *DataFrame) RowSlice(startIndex, endIndex int) *DataFrame {
 	return newDf
 }
 
-	
 // Filter returns a new DataFrame with rows that satisfy the given condition.
 //
 // Parameters:
@@ -451,6 +454,7 @@ type FuncType func([]any) any
 // Note:
 //   - The method signature of the custom function needs to match the FuncType type: 'func(x any) any'
 func (df *DataFrame) Apply(function FuncType, axis ...int) (any, error) {
+	startNow := time.Now()
 
 	// default to 0 if user did not pass 'axis' parameter
 	if axis == nil {
@@ -459,9 +463,11 @@ func (df *DataFrame) Apply(function FuncType, axis ...int) (any, error) {
 	// =============== Creation of Result from function ===============
 	// column wise operation (basically operate on all the numbers in the current column only)
 	if axis[0] == 0 {
+		fmt.Printf("Apply operation took: %v \n", time.Since(startNow))
 		return df.applyColumnWise(function)
 
 	} else {
+		fmt.Printf("Apply operation took: %v \n", time.Since(startNow))
 		return df.applyRowWise(function)
 	}
 
@@ -472,7 +478,6 @@ func (df *DataFrame) applyColumnWise(fn FuncType) (any, error) {
 	results := make(map[string][]any)
 
 	for colName, colValue := range df.Columns {
-		fmt.Printf("ColName: %v, colValue: %v", colName, colValue)
 
 		// initialize the slice if it doesn't exist yet
 		if _, exists := results[colName]; !exists {
@@ -529,45 +534,98 @@ func (df *DataFrame) applyColumnWise(fn FuncType) (any, error) {
 	return consolidateResults(results)
 }
 
+type rowResult struct {
+	index int
+	data  any
+	err   error
+}
+
 func (df *DataFrame) applyRowWise(fn FuncType) (any, error) {
-	results := make(map[string][]any)
+	nRows := df.Nrows()
+	nCols := df.ColumnNames()
 
-	for i := 0; i < df.Nrows(); i++ {
+	var wg sync.WaitGroup
 
-		row, err := df.Row(i)
-		if err != nil {
-			return results, fmt.Errorf("Error trying to get row: %v", err)
+	// set up the number of workers
+	numWorkers := min(nRows, runtime.NumCPU()) // if there is less rows than the workers, just use the number of rows as the number of workers
+
+	// create the channels
+	indices := make(chan int, nRows) // to keep track of order
+	resultsChan := make(chan rowResult, nRows)
+
+	// create the workers and they will wait for the indices channel to contain something before starting
+	for range numWorkers {
+		wg.Add(1) // tells the wait group there is 1 worker running
+		go func() {
+
+			defer wg.Done() // remove the '1' we added in wg.Add(1) to say worker completed work at the end of this function
+			for i := range indices {
+
+				row, err := df.Row(i)
+				if err != nil {
+					resultsChan <- rowResult{index: i, err: err}
+					continue
+				}
+
+				// prepare data for the user function
+				rowData := make([]any, len(nCols))
+				for j, colName := range nCols {
+					// rowData contains each value from the original Dataframe's row
+					// this kind of clones the dataframe's rows into the variable rowData to use
+					rowData[j] = row[colName]
+				}
+
+				// execute the custom function
+				res := fn(rowData)
+				resultsChan <- rowResult{index: i, data: res}
+
+			}
+		}()
+
+	}
+
+	// feed the workers and close the input channel
+	for i := range nRows {
+		indices <- i
+	}
+	close(indices)
+
+	// now this is a specialised anonymous function to wait for the workers to finish
+	// after workers has finished, it will close the results Channel (resultsChan) to ensure no leakage
+	go func() {
+		wg.Wait()          // wait for the workers to finish
+		close(resultsChan) // close the channel once it has finished
+	}()
+
+	// collect and re order the results
+	finalResults := make(map[string][]any)
+	for _, colName := range nCols {
+		finalResults[colName] = make([]any, nRows) // for each column, add the total no. of rows in the dataframe
+	}
+
+	for result := range resultsChan {
+		if result.err != nil {
+			return nil, result.err
 		}
-		cols := df.ColumnNames()
-		rowData := make([]any, len(cols))
-		for j, colName := range cols {
-			// we access each column in each row and assign it to row Data
-			rowData[j] = row[colName]
-		}
 
-		// apply the function to the whole rowData (multiple values per row)
-		result := fn(rowData) // spread rowData as arguments
-
-		// handle result depending on whether it's a slice or single value
-		switch value := result.(type) {
+		// map results back to columns with the correct index
+		switch val := result.data.(type) {
 		case []any:
-			// if the result is a slice, this means we are transforming each element in the row
-			// store the result as a series (one element per column)
-			for j, colName := range cols {
-				results[colName] = append(results[colName], value[j]) // append each element in the result slice
+			for j, colName := range nCols {
+				// if the custom function returns []any,
+				// it is assumed that the user custom function returns the entire row of unique data
+				finalResults[colName][result.index] = val[j]
 			}
 		case any:
-			// if the result is a single value, repeat it across the row
-			for _, colName := range cols {
-				results[colName] = append(results[colName], value) // append the single value to each column
+			for _, colName := range nCols {
+				// if the custom function returns a single value,
+				// it is assumed that the user custom function returns a single value for the entire row.
+				finalResults[colName][result.index] = val
 			}
-		default:
-			// handle unexpected result type
-			return nil, fmt.Errorf("unexpected result type: %T", result)
 		}
 	}
 
-	return consolidateResults(results)
+	return consolidateResults(finalResults)
 }
 
 func consolidateResults(results map[string][]any) (*DataFrame, error) {
