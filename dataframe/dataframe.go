@@ -672,3 +672,51 @@ func toFloat(v any) (float64, bool) {
 	}
 	return 0, false
 }
+
+// Describe returns summary statistics for numeric columns.
+func (df *DataFrame) Describe() (*DataFrame, error) {
+
+	stats := []string{"count", "mean", "min", "max"}
+	result := NewDataFrame()
+
+	statCol := NewColumn("stat", make([]any, len(stats)))
+	for i, s := range stats {
+		statCol.Data[i] = s
+	}
+	result.AddColumn(statCol)
+
+	for name, col := range df.Columns {
+		var nums []float64
+
+		for _, v := range col.Data {
+			if f, ok := toFloat(v); ok {
+				nums = append(nums, f)
+			}
+		}
+
+		if len(nums) == 0 {
+			continue
+		}
+
+		sum := 0.0
+		min, max := nums[0], nums[0]
+		for _, v := range nums {
+			sum += v
+			if v < min {
+				min = v
+			}
+			if v > max {
+				max = v
+			}
+		}
+
+		count := float64(len(nums))
+		mean := sum / count
+
+		result.AddColumn(NewColumn(name, []any{
+			count, mean, min, max,
+		}))
+	}
+
+	return result, nil
+}

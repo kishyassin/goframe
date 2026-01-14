@@ -9,9 +9,13 @@ func TestDescribe(t *testing.T) {
 	df.AddColumn(ConvertToAnyColumn(NewColumn("salary", []float64{1000, 2000, 3000})))
 	df.AddColumn(ConvertToAnyColumn(NewColumn("name", []string{"a", "b", "c"})))
 
-	desc := df.Describe()
+	desc, err := df.Describe()
+	if err != nil {
+		t.Fatalf("Describe returned error: %v", err)
+	}
 
-	if desc.Ncols() != 3 {
+	// Should only summarize numeric columns
+	if desc.Ncols() != 3 { // stat, age, salary
 		t.Fatalf("expected 3 columns (stat, age, salary), got %d", desc.Ncols())
 	}
 
