@@ -1742,6 +1742,48 @@ func TestDropDuplicates(t *testing.T) {
 
 }
 
+func TestRowSlice(t *testing.T) {
+	df := goframe.NewDataFrame()
+
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("id", []int{1, 2, 3, 4})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("value", []string{"A", "B", "C", "D"})))
+	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("name", []string{"Alice", "Bob", "Charlie", "Denmark"})))
+
+	slicedDf := df.RowSlice(0, 2)
+
+	IdCol, _ := slicedDf.Select("id")
+	valueCol, _ := slicedDf.Select("value")
+	nameCol, _ := slicedDf.Select("name")
+	numberOfRows := slicedDf.Nrows()
+
+	expectedId := []int{1, 2}
+	expectedNames := []string{"Alice", "Bob"}
+	expectedValue := []string{"A", "B"}
+
+	expectedRows := 2
+
+	if numberOfRows != expectedRows {
+		t.Errorf("Expected %v row but got %v", expectedRows, numberOfRows)
+	}
+
+	for i := range expectedRows {
+		// Name check
+		if nameCol.Data[i].(string) != expectedNames[i] {
+			t.Errorf("Index %d: expected name %s, got %v", i, expectedNames[i], nameCol.Data[i])
+		}
+		// Value check
+		if valueCol.Data[i].(string) != expectedValue[i] {
+			t.Errorf("Index %d: expected age %s, got %v", i, expectedValue[i], valueCol.Data[i])
+		}
+		// Score check
+		if IdCol.Data[i].(int) != expectedId[i] {
+			t.Errorf("Index %d: expected score %v, got %v", i, expectedId[i], IdCol.Data[i])
+		}
+
+	}
+
+}
+
 // MARK: Helper Functions
 
 /*
