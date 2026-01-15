@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"math"
 )
 
 // DataFrame represents a collection of typed columns.
@@ -700,15 +701,13 @@ func (df *DataFrame) Describe() (*DataFrame, error) {
 
 		sum := 0.0
 		min, max := nums[0], nums[0]
+
 		for _, v := range nums {
 			sum += v
-			if v < min {
-				min = v
-			}
-			if v > max {
-				max = v
-			}
+			min = math.Min(min, v)
+			max = math.Max(max, v)
 		}
+
 
 		count := float64(len(nums))
 		mean := sum / count
