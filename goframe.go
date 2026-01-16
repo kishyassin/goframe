@@ -5,6 +5,8 @@
 package goframe
 
 import (
+	"context"
+	"database/sql"
 	"io"
 
 	df "github.com/kishyassin/goframe/dataframe"
@@ -18,6 +20,7 @@ type GroupedDataFrame = df.GroupedDataFrame
 type DataFrameSorter = df.DataFrameSorter
 type FuncType = df.FuncType
 type DropDuplicatesOption = df.DropDuplicatesOption
+type SQLReadOption = df.SQLReadOption
 
 // Column is re-exported as a generic type alias
 type Column[T any] = df.Column[T]
@@ -52,4 +55,26 @@ func ConvertToAnyColumn[T any](col *Column[T]) *Column[any] {
 // FromCSVReader creates a DataFrame from a CSV reader.
 func FromCSVReader(reader io.Reader) (*DataFrame, error) {
 	return df.FromCSVReader(reader)
+}
+
+// SQL Functions - Database Integration
+
+// FromSQL reads a SQL query into a DataFrame with auto-commit.
+func FromSQL(db *sql.DB, query string, args []any, options ...SQLReadOption) (*DataFrame, error) {
+	return df.FromSQL(db, query, args, options...)
+}
+
+// FromSQLContext reads a SQL query into a DataFrame with context support.
+func FromSQLContext(ctx context.Context, db *sql.DB, query string, args []any, options ...SQLReadOption) (*DataFrame, error) {
+	return df.FromSQLContext(ctx, db, query, args, options...)
+}
+
+// FromSQLTx reads from an existing transaction.
+func FromSQLTx(tx *sql.Tx, query string, args []any, options ...SQLReadOption) (*DataFrame, error) {
+	return df.FromSQLTx(tx, query, args, options...)
+}
+
+// FromSQLTxContext reads from an existing transaction with context support.
+func FromSQLTxContext(ctx context.Context, tx *sql.Tx, query string, args []any, options ...SQLReadOption) (*DataFrame, error) {
+	return df.FromSQLTxContext(ctx, tx, query, args, options...)
 }
