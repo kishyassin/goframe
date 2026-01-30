@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strconv"
@@ -459,27 +460,31 @@ func TestVisualization(t *testing.T) {
 	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("y", []float64{2, 4, 6, 8, 10})))
 	df.AddColumn(goframe.ConvertToAnyColumn(goframe.NewColumn("z", []float64{5, 10, 15, 20, 25})))
 
+	// Use temporary directory for test output files
+	tmpDir := t.TempDir()
+
 	// Test LinePlot
-	linePlotFilename := "line_plot_test.png"
+	linePlotFilename := filepath.Join(tmpDir, "line_plot_test.png")
 	linePlotErr := df.LinePlot("x", "y", linePlotFilename)
 	if linePlotErr != nil {
 		t.Errorf("LinePlot failed: %v", linePlotErr)
 	}
 
 	// Test BarPlot
-	barPlotFilename := "bar_plot_test.png"
+	barPlotFilename := filepath.Join(tmpDir, "bar_plot_test.png")
 	barPlotErr := df.BarPlot("z", barPlotFilename)
 	if barPlotErr != nil {
 		t.Errorf("BarPlot failed: %v", barPlotErr)
 	}
 
-	_, err := os.Stat("line_plot_test.png")
+	// Verify files were created
+	_, err := os.Stat(linePlotFilename)
 	if err != nil {
-		t.Errorf("The created file: %v can not be found", linePlotFilename)
+		t.Errorf("The created file: %v cannot be found", linePlotFilename)
 	}
-	_, err = os.Stat("bar_plot_test.png")
+	_, err = os.Stat(barPlotFilename)
 	if err != nil {
-		t.Errorf("The created file: %v can not be found", barPlotFilename)
+		t.Errorf("The created file: %v cannot be found", barPlotFilename)
 	}
 }
 
