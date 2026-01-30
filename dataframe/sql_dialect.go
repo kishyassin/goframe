@@ -3,6 +3,7 @@ package dataframe
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 )
 
@@ -68,9 +69,16 @@ func (d *SQLiteDialect) QuoteIdentifier(name string) string {
 
 // CreateTableSQL generates a CREATE TABLE statement for SQLite
 func (d *SQLiteDialect) CreateTableSQL(tableName string, columns map[string]string) string {
+	// Sort column names for deterministic SQL generation
+	colNames := make([]string, 0, len(columns))
+	for colName := range columns {
+		colNames = append(colNames, colName)
+	}
+	sort.Strings(colNames)
+
 	var columnDefs []string
-	for colName, colType := range columns {
-		columnDefs = append(columnDefs, fmt.Sprintf("%s %s", d.QuoteIdentifier(colName), colType))
+	for _, colName := range colNames {
+		columnDefs = append(columnDefs, fmt.Sprintf("%s %s", d.QuoteIdentifier(colName), columns[colName]))
 	}
 	return fmt.Sprintf("CREATE TABLE %s (%s)", d.QuoteIdentifier(tableName), strings.Join(columnDefs, ", "))
 }
@@ -127,9 +135,16 @@ func (d *PostgresDialect) QuoteIdentifier(name string) string {
 
 // CreateTableSQL generates a CREATE TABLE statement for PostgreSQL
 func (d *PostgresDialect) CreateTableSQL(tableName string, columns map[string]string) string {
+	// Sort column names for deterministic SQL generation
+	colNames := make([]string, 0, len(columns))
+	for colName := range columns {
+		colNames = append(colNames, colName)
+	}
+	sort.Strings(colNames)
+
 	var columnDefs []string
-	for colName, colType := range columns {
-		columnDefs = append(columnDefs, fmt.Sprintf("%s %s", d.QuoteIdentifier(colName), colType))
+	for _, colName := range colNames {
+		columnDefs = append(columnDefs, fmt.Sprintf("%s %s", d.QuoteIdentifier(colName), columns[colName]))
 	}
 	return fmt.Sprintf("CREATE TABLE %s (%s)", d.QuoteIdentifier(tableName), strings.Join(columnDefs, ", "))
 }
@@ -185,9 +200,16 @@ func (d *MySQLDialect) QuoteIdentifier(name string) string {
 
 // CreateTableSQL generates a CREATE TABLE statement for MySQL
 func (d *MySQLDialect) CreateTableSQL(tableName string, columns map[string]string) string {
+	// Sort column names for deterministic SQL generation
+	colNames := make([]string, 0, len(columns))
+	for colName := range columns {
+		colNames = append(colNames, colName)
+	}
+	sort.Strings(colNames)
+
 	var columnDefs []string
-	for colName, colType := range columns {
-		columnDefs = append(columnDefs, fmt.Sprintf("%s %s", d.QuoteIdentifier(colName), colType))
+	for _, colName := range colNames {
+		columnDefs = append(columnDefs, fmt.Sprintf("%s %s", d.QuoteIdentifier(colName), columns[colName]))
 	}
 	return fmt.Sprintf("CREATE TABLE %s (%s)", d.QuoteIdentifier(tableName), strings.Join(columnDefs, ", "))
 }

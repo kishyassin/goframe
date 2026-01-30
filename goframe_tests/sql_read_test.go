@@ -1025,8 +1025,8 @@ func TestFromSQLContext_ContextTimeout(t *testing.T) {
 			}
 
 			// Verify error is related to context
-			if err != nil && !strings.Contains(err.Error(), "error executing query") {
-				t.Errorf("Expected 'error executing query' in error, got: %v", err)
+			if err != nil && !strings.Contains(err.Error(), "executing SQL query") {
+				t.Errorf("Expected 'executing SQL query' in error, got: %v", err)
 			}
 		})
 	}

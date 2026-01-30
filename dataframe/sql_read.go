@@ -20,7 +20,11 @@ type SQLReadOption struct {
 	//   - map[string]any: Custom default values per column
 	NullHandler any
 
-	// ParseDates lists column names to parse as time.Time (optional)
+	// ParseDates lists column names whose values should be parsed as time.Time.
+	// This applies to columns containing date/time data as strings, int64 (Unix timestamps),
+	// or float64 (Unix timestamps). Database-native datetime columns (DATETIME, TIMESTAMP)
+	// are automatically handled by SQL type mapping and don't need to be listed here.
+	// Supported string formats: RFC3339, "2006-01-02 15:04:05", "2006-01-02", and others.
 	ParseDates []string
 }
 
@@ -31,10 +35,21 @@ func FromSQL(db *sql.DB, query string, args []any, options ...SQLReadOption) (*D
 
 // FromSQLContext reads a SQL query into a DataFrame with context support
 func FromSQLContext(ctx context.Context, db *sql.DB, query string, args []any, options ...SQLReadOption) (*DataFrame, error) {
+	// Input validation
+	if db == nil {
+		return nil, fmt.Errorf("database connection cannot be nil")
+	}
+	if query == "" {
+		return nil, fmt.Errorf("query cannot be empty")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	// Execute query
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("error executing query: %w", err)
+		return nil, fmt.Errorf("executing SQL query with %d arguments: %w", len(args), err)
 	}
 	defer rows.Close()
 
@@ -49,10 +64,21 @@ func FromSQLTx(tx *sql.Tx, query string, args []any, options ...SQLReadOption) (
 
 // FromSQLTxContext reads from an existing transaction with context support
 func FromSQLTxContext(ctx context.Context, tx *sql.Tx, query string, args []any, options ...SQLReadOption) (*DataFrame, error) {
+	// Input validation
+	if tx == nil {
+		return nil, fmt.Errorf("transaction cannot be nil")
+	}
+	if query == "" {
+		return nil, fmt.Errorf("query cannot be empty")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	// Execute query in transaction
 	rows, err := tx.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("error executing query: %w", err)
+		return nil, fmt.Errorf("executing transaction query with %d arguments: %w", len(args), err)
 	}
 	defer rows.Close()
 
@@ -253,7 +279,8 @@ func handleNull(colName string, nullHandler any, dest any) (any, error) {
 			case *sql.NullBool:
 				return false, nil
 			case *sql.NullTime:
-				return nil, nil // time.Time zero value is not very useful
+				// Return zero time for consistency with other zero handlers
+				return time.Time{}, nil
 			default:
 				return nil, nil
 			}
