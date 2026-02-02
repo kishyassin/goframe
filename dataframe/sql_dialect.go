@@ -1,10 +1,12 @@
 package dataframe
 
 import (
+	"database/sql"
 	"fmt"
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 )
 
 // SQLDialect defines the interface for database-specific SQL generation
@@ -217,4 +219,101 @@ func (d *MySQLDialect) CreateTableSQL(tableName string, columns map[string]strin
 // TableExistsSQL returns a query with correct placeholder to check if a table exists in MySQL
 func (d *MySQLDialect) TableExistsSQL() string {
 	return fmt.Sprintf("SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=%s", d.Placeholder(1))
+}
+
+// detectDialect attempts to detect the database dialect from the driver name
+func detectDialect(db *sql.DB) (SQLDialect, error) {
+	// Get the driver name using reflection
+	// This is a bit hacky but works for standard sql.DB
+	driver := fmt.Sprintf("%T", db.Driver())
+
+	// Match common driver patterns
+	driverLower := strings.ToLower(driver)
+	if strings.Contains(driverLower, "sqlite") {
+		return &SQLiteDialect{}, nil
+	}
+	if strings.Contains(driverLower, "postgres") || strings.Contains(driverLower, "pq") {
+		return &PostgresDialect{}, nil
+	}
+	if strings.Contains(driverLower, "mysql") {
+		return &MySQLDialect{}, nil
+	}
+
+	// Default to SQLite if we can't detect
+	return &SQLiteDialect{}, fmt.Errorf("could not detect database dialect from driver %s, defaulting to SQLite", driver)
+}
+
+// getDialect returns the appropriate dialect based on the provided name or detects it
+func getDialect(dialectName string, db *sql.DB) (SQLDialect, error) {
+	// If dialect is explicitly specified, use it
+	if dialectName != "" {
+		switch strings.ToLower(dialectName) {
+		case "sqlite", "sqlite3":
+			return &SQLiteDialect{}, nil
+		case "postgres", "postgresql", "pq":
+			return &PostgresDialect{}, nil
+		case "mysql":
+			return &MySQLDialect{}, nil
+		default:
+			return nil, fmt.Errorf("unknown dialect: %s (supported: sqlite, postgres, mysql)", dialectName)
+		}
+	}
+
+	// Otherwise, try to detect it
+	return detectDialect(db)
+}
+
+// inferGoTypeFromValue infers the Go type from a value, handling nil appropriately
+func inferGoTypeFromValue(value any) reflect.Type {
+	if value == nil {
+		// For nil values, we can't determine the type, so default to string
+		return reflect.TypeOf("")
+	}
+	return reflect.TypeOf(value)
+}
+
+// inferGoTypeFromColumn infers the Go type from a column by examining its values
+func inferGoTypeFromColumn(col *Column[any]) reflect.Type {
+	// Try to find a non-nil value to infer the type
+	for _, value := range col.Data {
+		if value != nil {
+			return reflect.TypeOf(value)
+		}
+	}
+
+	// If all values are nil, default to string type
+	return reflect.TypeOf("")
+}
+
+// convertGoTypeToSQLNullable wraps a value in the appropriate sql.Null* type for insertion
+func convertGoTypeToSQLNullable(value any) any {
+	if value == nil {
+		// For nil values, we need to return a sql.Null* type with Valid=false
+		// We'll default to sql.NullString since we can't determine the type
+		return sql.NullString{Valid: false}
+	}
+
+	switch v := value.(type) {
+	case string:
+		return sql.NullString{String: v, Valid: true}
+	case int, int8, int16, int32, int64:
+		// Convert all int types to int64
+		val := reflect.ValueOf(v).Convert(reflect.TypeOf(int64(0))).Int()
+		return sql.NullInt64{Int64: val, Valid: true}
+	case uint, uint8, uint16, uint32, uint64:
+		// Convert all uint types to int64 (may lose precision for very large values)
+		val := int64(reflect.ValueOf(v).Convert(reflect.TypeOf(uint64(0))).Uint())
+		return sql.NullInt64{Int64: val, Valid: true}
+	case float32, float64:
+		// Convert all float types to float64
+		val := reflect.ValueOf(v).Convert(reflect.TypeOf(float64(0))).Float()
+		return sql.NullFloat64{Float64: val, Valid: true}
+	case bool:
+		return sql.NullBool{Bool: v, Valid: true}
+	case time.Time:
+		return sql.NullTime{Time: v, Valid: true}
+	default:
+		// For unknown types, convert to string
+		return sql.NullString{String: fmt.Sprintf("%v", v), Valid: true}
+	}
 }

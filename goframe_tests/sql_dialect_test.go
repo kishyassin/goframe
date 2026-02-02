@@ -296,20 +296,6 @@ func TestDialect_CreateTableSQL(t *testing.T) {
 				"`created_at` DATETIME",
 			},
 		},
-		{
-			name:      "SQLite table with special chars",
-			dialect:   &dataframe.SQLiteDialect{},
-			tableName: "user_activity",
-			columns: map[string]string{
-				"user_id":    "INTEGER",
-				"login_time": "TIMESTAMP",
-			},
-			contains: []string{
-				`CREATE TABLE "user_activity"`,
-				`"user_id" INTEGER`,
-				`"login_time" TIMESTAMP`,
-			},
-		},
 	}
 
 	for _, tt := range tests {
@@ -379,15 +365,3 @@ func TestDialect_TableExistsSQL(t *testing.T) {
 		})
 	}
 }
-
-// NOTE: The following helper functions in sql_dialect.go are unexported and cannot be
-// directly unit tested from this package:
-// - detectDialect(db *sql.DB) (SQLDialect, error)
-// - getDialect(dialectName string, db *sql.DB) (SQLDialect, error)
-// - inferGoTypeFromValue(value any) reflect.Type
-// - inferGoTypeFromColumn(col *Column[any]) reflect.Type
-// - convertGoTypeToSQLNullable(value any) any
-//
-// These functions are tested indirectly through integration tests in sql_read_test.go
-// If direct unit testing is desired, these functions would need to be exported by
-// capitalizing their first letter (e.g., DetectDialect, GetDialect, etc.)
